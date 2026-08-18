@@ -1,29 +1,23 @@
 # Cash Factories Backend
 
-Сервис получает новости из внешних источников, сохраняет их и отдает тексты в разных эмоциональных режимах.
+Go-сервис, который:
+
+- загружает реальные новости из The Guardian
+- сохраняет их в SQLite
+- отдает тексты в нескольких эмоциональных режимах
+- хранит только актуальную подборку без накопления старых новостей
 
 ## Структура
 
 - `cmd/api` - точка входа
-- `internal/app` - сборка зависимостей и запуск HTTP-сервера
+- `internal/app` - инициализация приложения и HTTP-сервера
 - `internal/config` - конфигурация
 - `internal/domain` - доменные модели и интерфейсы
 - `internal/usecase` - бизнес-логика
-- `internal/usecase/storage` - in-memory репозиторий для локального запуска
-- `internal/usecase/source` - адаптер источника новостей
-- `internal/usecase/rewriter` - адаптер сервиса рерайта
-- `internal/transport/http` - HTTP API
-- `Caddyfile` - конфиг локального reverse proxy
-- `Makefile` - команды для локальной работы
-
-## Эндпоинты
-
-- `GET /health`
-- `POST /api/v1/news/sync?mood=neutral`
-- `GET /api/v1/news?mood=neutral`
-- `GET /api/v1/news/{id}`
-- `GET /docs`
-- `GET /openapi.yaml`
+- `internal/usecase/source` - клиент внешнего источника новостей
+- `internal/usecase/rewriter` - клиент сервиса рерайта
+- `internal/usecase/storage` - SQLite и in-memory хранилища
+- `internal/transport/http` - HTTP API и swagger
 
 ## Запуск
 
@@ -31,32 +25,37 @@
 make run
 ```
 
-По умолчанию сервис стартует на `:8080`.
+Сервис поднимается на `http://localhost:8080`.
 
-Для загрузки реальных новостей нужен ключ Guardian Open Platform:
+## Основные эндпоинты
 
-```bash
-GUARDIAN_API_KEY=your_key make run
-```
+- `GET /health`
+- `GET /api/v1/news?mood=neutral`
+- `GET /api/v1/news/{id}`
+- `GET /api/v1/news/by-external?external_id=...`
+- `GET /api/v1/news/rewrite?external_id=...&mood=...`
+- `POST /api/v1/news/sync?mood=neutral&limit=10`
+- `GET /api/v1/jobs/{id}`
+- `GET /docs`
+- `GET /openapi.yaml`
 
-Для реального эмоционального рерайта можно передать ключ Z.ai:
+## Конфигурация
 
-```bash
-GUARDIAN_API_KEY=your_key ZAI_API_KEY=your_key make run
-```
+Основные переменные:
 
-По умолчанию новости сохраняются в SQLite:
+- `HTTP_PORT`
+- `GUARDIAN_API_KEY`
+- `ZAI_API_KEY`
+- `ZAI_MODEL`
+- `SQLITE_PATH`
 
-```bash
-SQLITE_PATH=data/news.db
-```
+`make run` подхватывает корневой `.env`, если он есть.
 
 ## Docker
 
 Из корня репозитория:
 
 ```bash
-cp .env.example .env
 make docker-up
 ```
 

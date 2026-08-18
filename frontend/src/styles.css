@@ -492,6 +492,19 @@ a {
   text-wrap: pretty;
 }
 
+.rewrite-fallback {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 249, 238, 0.92);
+  border: 1px dashed rgba(154, 112, 54, 0.34);
+}
+
+.rewrite-fallback__title {
+  margin-bottom: 10px;
+  color: #6b4f1e;
+  font-weight: 800;
+}
+
 .empty-state {
   padding: 28px;
   border-radius: 30px;

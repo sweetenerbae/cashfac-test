@@ -1,40 +1,61 @@
 # Cash Factories Test Task
 
-Репозиторий организован как монорепа.
+Приложение показывает реальные новости и позволяет читать один и тот же материал в разных эмоциональных режимах: нейтрально, радостно, грустно и иронично.
 
-## Структура
+## Что внутри
 
-- `backend` - Go API
-- `frontend` - клиентская часть
+- `backend` - Go API с загрузкой новостей, сохранением в SQLite и рерайтом текста
+- `frontend` - React/Vite клиент с лентой новостей и страницей сравнения оригинала и рерайта
 
-## Быстрый старт
+## Источник новостей
+
+Для загрузки реальных материалов используется The Guardian Open Platform.
+
+## Как устроен рерайт
+
+Текст переписывается через Z.ai `glm-5.2`.
+
+Факты в рерайте не должны меняться:
+
+- имена
+- даты
+- числа
+- места
+- организации
+- цитаты
+- порядок событий
+
+Если модель возвращает слишком близкий к оригиналу текст, backend делает более строгую повторную попытку. Если выразительную версию подготовить не удалось, в интерфейсе показывается fallback, а не молчаливая подмена.
+
+## Запуск
+
+Backend:
 
 ```bash
+cd backend
 make run
 ```
 
-Команда запускает backend из корня репозитория.
+Frontend:
 
-Swagger UI:
+```bash
+cd frontend
+npm run dev
+```
 
-- `http://localhost:8080/docs`
+После запуска:
 
-Health check:
+- backend: `http://localhost:8080`
+- swagger: `http://localhost:8080/docs`
+- frontend: `http://localhost:5173`
 
-- `http://localhost:8080/health`
+## Переменные окружения
 
-## Команды
+В корне репозитория используется `.env`.
 
-- `make run` - запуск backend
-- `make dev` - запуск backend в dev-режиме
-- `make build` - сборка backend
-- `make test` - тесты backend
-- `make fmt` - форматирование backend
-- `make caddy-run` - запуск Caddy для backend
-- `make frontend-install` - установка frontend-зависимостей
-- `make frontend-dev` - запуск Vite dev server
-- `make frontend-build` - сборка frontend
-- `make docker-build` - сборка docker-образов
-- `make docker-up` - запуск backend и Caddy через docker compose
-- `make docker-down` - остановка docker compose
-- `make docker-logs` - логи docker compose
+Основные переменные:
+
+- `GUARDIAN_API_KEY`
+- `ZAI_API_KEY`
+- `ZAI_MODEL`
+- `SQLITE_PATH`

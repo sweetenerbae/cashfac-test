@@ -1,6 +1,7 @@
+import { defaultMood, getMoodLabel } from "../constants/moods";
 import { formatDate } from "../utils/news";
 
-export function NewsDetail({ isLoading, selectedNews }) {
+export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, selectedNews }) {
   if (isLoading) {
     return (
       <div className="detail detail--article detail-skeleton" aria-hidden="true">
@@ -71,9 +72,16 @@ export function NewsDetail({ isLoading, selectedNews }) {
             <span className="compare__eyebrow">Новая подача</span>
             <h3>Рерайт</h3>
           </div>
-          <div className="article-text">
-            <p>{selectedNews.RewrittenText}</p>
-          </div>
+          {activeMood !== defaultMood && rewriteFallbackMessage ? (
+            <div className="rewrite-fallback">
+              <p className="rewrite-fallback__title">Режим «{getMoodLabel(activeMood)}» пока недоступен для этой статьи</p>
+              <p>{rewriteFallbackMessage}</p>
+            </div>
+          ) : (
+            <div className="article-text">
+              <p>{selectedNews.RewrittenText}</p>
+            </div>
+          )}
         </section>
       </div>
     </article>

@@ -50,7 +50,15 @@ func (c *ZAIClient) Rewrite(ctx context.Context, request domain.RewriteRequest) 
 	}
 
 	if isWeakRewrite(request, text) {
-		return domain.RewriteResponse{}, fmt.Errorf("zai rewrite is too close to the source text")
+		log.Printf("rewriter: second weak rewrite detected for mood=%s title=%q, retry with final prompt", request.Mood, request.Title)
+		text, err = c.completeRewrite(ctx, request, true)
+		if err != nil {
+			return domain.RewriteResponse{}, err
+		}
+	}
+
+	if isWeakRewrite(request, text) {
+		return domain.RewriteResponse{}, fmt.Errorf("rewriter could not prepare a distinct enough version for this mood")
 	}
 
 	return domain.RewriteResponse{
@@ -101,6 +109,7 @@ func buildStrictUserPrompt(request domain.RewriteRequest) string {
 			"Do not shorten the article drastically.\n"+
 			"Do not preserve the original opening sentence or the original paragraph rhythm.\n"+
 			"Do not mirror the source wording except for unavoidable factual phrases, names, and quotes.\n"+
+			"Each paragraph should feel freshly written, not lightly edited.\n"+
 			"Do not add labels such as [sad] or any intro.\n"+
 			"Tone requirement: %s\n"+
 			"Structure guidance: %s\n\n"+
@@ -147,7 +156,7 @@ func (c *ZAIClient) completeRewrite(ctx context.Context, request domain.RewriteR
 	temperature := 0.55
 	if strict {
 		userPrompt = buildStrictUserPrompt(request)
-		temperature = 0.7
+		temperature = 0.8
 	}
 
 	body, err := json.Marshal(zaiChatCompletionRequest{

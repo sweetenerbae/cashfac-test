@@ -9,6 +9,7 @@ export function NewsArticlePage({
   isLoading,
   isSyncing,
   onBack,
+  rewriteFallbackMessage,
   selectedNews,
   setActiveMood,
   status
@@ -59,7 +60,12 @@ export function NewsArticlePage({
       </section>
 
       <main className="article-layout">
-        <NewsDetail isLoading={isBootstrapping || isDetailLoading} selectedNews={selectedNews} />
+        <NewsDetail
+          activeMood={activeMood}
+          isLoading={isBootstrapping || isDetailLoading}
+          rewriteFallbackMessage={rewriteFallbackMessage}
+          selectedNews={selectedNews}
+        />
       </main>
     </div>
   );

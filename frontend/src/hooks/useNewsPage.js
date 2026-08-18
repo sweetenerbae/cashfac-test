@@ -34,6 +34,7 @@ export function useNewsPage() {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [error, setError] = useState("");
   const [status, setStatus] = useState(INITIAL_STATUS);
+  const [rewriteFallbackMessage, setRewriteFallbackMessage] = useState("");
   const [activeJobID, setActiveJobID] = useState("");
   const [activeJobMood, setActiveJobMood] = useState(defaultMood);
 
@@ -43,6 +44,7 @@ export function useNewsPage() {
   function handleMoodChange(mood) {
     setActiveMood(mood);
     setError("");
+    setRewriteFallbackMessage("");
     setStatus(`Выбран режим «${getMoodLabel(mood)}».`);
   }
 
@@ -53,6 +55,7 @@ export function useNewsPage() {
 
     setIsDetailLoading(true);
     setError("");
+    setRewriteFallbackMessage("");
 
     try {
       const item = await rewriteNews(externalID, mood);
@@ -71,6 +74,7 @@ export function useNewsPage() {
       return item;
     } catch (loadError) {
       setError(loadError.message);
+      setRewriteFallbackMessage(buildRewriteFallbackMessage(mood, loadError.message));
       return null;
     } finally {
       setIsDetailLoading(false);
@@ -89,6 +93,7 @@ export function useNewsPage() {
 
     setIsDetailLoading(true);
     setError("");
+    setRewriteFallbackMessage("");
 
     try {
       const item = await getNewsByExternalID(externalID);
@@ -305,8 +310,18 @@ export function useNewsPage() {
     setActiveMood: handleMoodChange,
     setSelectedId: setSelectedExternalID,
     status,
+    rewriteFallbackMessage,
     loadNews,
     selectedExternalID,
     syncNews
   };
+}
+
+function buildRewriteFallbackMessage(mood, serverMessage) {
+  const label = getMoodLabel(mood).toLowerCase();
+  if (serverMessage && serverMessage.toLowerCase().includes("distinct enough")) {
+    return `Пока не удалось подготовить достаточно выразительную версию текста в режиме «${label}». Показываю исходный материал, чтобы не искажать смысл.`;
+  }
+
+  return `Пока не удалось подготовить версию текста в режиме «${label}». Показываю исходный материал, чтобы не искажать смысл.`;
 }
