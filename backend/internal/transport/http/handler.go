@@ -34,6 +34,8 @@ func (h *Handler) registerRoutes() {
 	h.mux.HandleFunc("/health", h.handleHealth)
 	h.mux.HandleFunc("/docs", h.handleSwaggerUI)
 	h.mux.HandleFunc("/docs/", h.handleSwaggerUI)
+	h.mux.HandleFunc("/docs/swagger-ui.css", h.handleSwaggerCSS)
+	h.mux.HandleFunc("/docs/swagger-ui-bundle.js", h.handleSwaggerJS)
 	h.mux.HandleFunc("/openapi.yaml", h.handleOpenAPISpec)
 	h.mux.HandleFunc("/api/v1/news/sync", h.handleSyncNews)
 	h.mux.HandleFunc("/api/v1/news/", h.handleGetNews)
@@ -66,6 +68,28 @@ func (h *Handler) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(openAPISpec)
 }
 
+func (h *Handler) handleSwaggerCSS(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/docs/swagger-ui.css" {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(swaggerCSS)
+}
+
+func (h *Handler) handleSwaggerJS(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/docs/swagger-ui-bundle.js" {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(swaggerJS)
+}
+
 func (h *Handler) handleSyncNews(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
@@ -77,12 +101,16 @@ func (h *Handler) handleSyncNews(w http.ResponseWriter, r *http.Request) {
 		mood = domain.MoodNeutral
 	}
 
-	if err := h.newsUseCase.Sync(r.Context(), 10, mood); err != nil {
+	count, err := h.newsUseCase.Sync(r.Context(), 10, mood)
+	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
-	writeJSON(w, http.StatusAccepted, map[string]string{"status": "sync started"})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "sync completed",
+		"count":  count,
+	})
 }
 
 func (h *Handler) handleListNews(w http.ResponseWriter, r *http.Request) {

@@ -34,3 +34,7 @@ Health check:
 - `make frontend-install` - установка frontend-зависимостей
 - `make frontend-dev` - запуск Vite dev server
 - `make frontend-build` - сборка frontend
+- `make docker-build` - сборка docker-образов
+- `make docker-up` - запуск backend и Caddy через docker compose
+- `make docker-down` - остановка docker compose
+- `make docker-logs` - логи docker compose

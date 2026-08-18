@@ -6,17 +6,25 @@ import (
 )
 
 type Config struct {
-	HTTP HTTPConfig
+	HTTP   HTTPConfig
+	Source SourceConfig
 }
 
 type HTTPConfig struct {
 	Port int
 }
 
+type SourceConfig struct {
+	GuardianAPIKey string
+}
+
 func Load() Config {
 	return Config{
 		HTTP: HTTPConfig{
 			Port: envInt("HTTP_PORT", 8080),
+		},
+		Source: SourceConfig{
+			GuardianAPIKey: os.Getenv("GUARDIAN_API_KEY"),
 		},
 	}
 }

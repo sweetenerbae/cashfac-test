@@ -32,3 +32,23 @@ make run
 ```
 
 По умолчанию сервис стартует на `:8080`.
+
+Для загрузки реальных новостей нужен ключ Guardian Open Platform:
+
+```bash
+GUARDIAN_API_KEY=your_key make run
+```
+
+## Docker
+
+Из корня репозитория:
+
+```bash
+cp .env.example .env
+make docker-up
+```
+
+После запуска:
+
+- `http://localhost:8080/health`
+- `http://localhost:8080/docs`

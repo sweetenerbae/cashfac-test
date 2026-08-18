@@ -24,10 +24,10 @@ func NewNewsUseCase(repo domain.NewsRepository, source domain.SourceClient, rewr
 	}
 }
 
-func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) error {
+func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) (int, error) {
 	items, err := uc.source.FetchLatest(ctx, limit)
 	if err != nil {
-		return fmt.Errorf("fetch latest news: %w", err)
+		return 0, fmt.Errorf("fetch latest news: %w", err)
 	}
 
 	result := make([]domain.News, 0, len(items))
@@ -40,7 +40,7 @@ func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) er
 			Mood:  mood,
 		})
 		if err != nil {
-			return fmt.Errorf("rewrite news %s: %w", item.ExternalID, err)
+			return 0, fmt.Errorf("rewrite news %s: %w", item.ExternalID, err)
 		}
 
 		publishedAt, _ := time.Parse(time.RFC3339, item.PublishedRaw)
@@ -63,10 +63,10 @@ func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) er
 	}
 
 	if err := uc.repo.SaveBatch(ctx, result); err != nil {
-		return fmt.Errorf("save batch: %w", err)
+		return 0, fmt.Errorf("save batch: %w", err)
 	}
 
-	return nil
+	return len(result), nil
 }
 
 func (uc *NewsUseCase) List(ctx context.Context, mood domain.Mood) ([]domain.News, error) {

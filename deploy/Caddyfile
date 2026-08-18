@@ -1,0 +1,8 @@
+{
+	auto_https off
+}
+
+:80 {
+	encode gzip zstd
+	reverse_proxy backend:8080
+}

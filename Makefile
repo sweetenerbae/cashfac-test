@@ -1,7 +1,7 @@
 BACKEND_DIR := ./backend
 FRONTEND_DIR := ./frontend
 
-.PHONY: run dev build test fmt clean swagger caddy-run caddy-validate frontend-install frontend-dev frontend-build
+.PHONY: run dev build test fmt clean swagger caddy-run caddy-validate frontend-install frontend-dev frontend-build docker-up docker-down docker-build docker-logs
 
 run:
 	@$(MAKE) -C $(BACKEND_DIR) run
@@ -38,3 +38,15 @@ frontend-dev:
 
 frontend-build:
 	@cd $(FRONTEND_DIR) && npm run build
+
+docker-build:
+	@docker compose build
+
+docker-up:
+	@docker compose up --build -d
+
+docker-down:
+	@docker compose down
+
+docker-logs:
+	@docker compose logs -f

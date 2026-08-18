@@ -1,0 +1,6 @@
+.git
+.gitignore
+.idea
+frontend/node_modules
+frontend/dist
+backend/bin

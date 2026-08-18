@@ -8,4 +8,10 @@ var (
 
 	//go:embed static/openapi.yaml
 	openAPISpec []byte
+
+	//go:embed static/swagger-ui/swagger-ui.css
+	swaggerCSS []byte
+
+	//go:embed static/swagger-ui/swagger-ui-bundle.js
+	swaggerJS []byte
 )
