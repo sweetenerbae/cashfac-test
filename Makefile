@@ -12,10 +12,10 @@ build:
 	go build -o $(BUILD_DIR)/$(APP_NAME) $(MAIN_PKG)
 
 run:
-	go run $(MAIN_PKG)
+	@go run $(MAIN_PKG)
 
 dev:
-	HTTP_PORT=8080 go run $(MAIN_PKG)
+	@HTTP_PORT=8080 go run $(MAIN_PKG)
 
 test:
 	go test ./...

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -38,6 +39,7 @@ func New() (*App, error) {
 }
 
 func (a *App) Run() error {
+	log.Printf("HTTP server listening on %s", a.server.Addr)
 	return a.server.ListenAndServe()
 }
 

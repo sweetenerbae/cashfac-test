@@ -1,0 +1,167 @@
+openapi: 3.0.3
+info:
+  title: Cash Factories News API
+  version: 0.1.0
+  description: >
+    API for collecting real news and exposing rewritten versions in different moods
+    without changing facts.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/news:
+    get:
+      summary: List news
+      tags:
+        - News
+      parameters:
+        - in: query
+          name: mood
+          required: false
+          schema:
+            $ref: "#/components/schemas/Mood"
+          description: Filter by rewrite mood
+      responses:
+        "200":
+          description: News list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/News"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/news/{id}:
+    get:
+      summary: Get single news item
+      tags:
+        - News
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: News item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/News"
+        "404":
+          description: News not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/news/sync:
+    post:
+      summary: Sync latest news and rewrite them in selected mood
+      tags:
+        - News
+      parameters:
+        - in: query
+          name: mood
+          required: false
+          schema:
+            $ref: "#/components/schemas/Mood"
+          description: Mood used for rewriting
+      responses:
+        "202":
+          description: Sync accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    Mood:
+      type: string
+      enum:
+        - neutral
+        - happy
+        - sad
+        - ironic
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+      required:
+        - status
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: sync started
+      required:
+        - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    News:
+      type: object
+      properties:
+        ID:
+          type: string
+        Title:
+          type: string
+        OriginalText:
+          type: string
+        RewrittenText:
+          type: string
+        Mood:
+          $ref: "#/components/schemas/Mood"
+        SourceName:
+          type: string
+        SourceURL:
+          type: string
+          format: uri
+        PublishedAt:
+          type: string
+          format: date-time
+        CreatedAt:
+          type: string
+          format: date-time
+        ExternalID:
+          type: string
+        FactChecksum:
+          type: string
+        OriginalDigest:
+          type: string

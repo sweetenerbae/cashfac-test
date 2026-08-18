@@ -1,6 +1,6 @@
-# Cashfac Test Backend
+# Cash Factories Test Backend
 
-Минимальный каркас backend-сервиса на Go под тестовое задание с новостями и эмоциональным рерайтом.
+Сервис для тестового задания Cash Factories: получение реальных новостей, сохранение и выдача версий текста в разных эмоциональных режимах.
 
 ## Архитектура
 
@@ -9,11 +9,11 @@
 - `internal/config` - конфигурация.
 - `internal/domain` - доменные модели и интерфейсы.
 - `internal/usecase` - бизнес-логика.
-- `internal/usecase/storage` - in-memory репозиторий для локального старта.
-- `internal/usecase/source` - клиент источника новостей, пока заглушка.
-- `internal/usecase/rewriter` - клиент AI-рерайта, пока заглушка.
+- `internal/usecase/storage` - in-memory репозиторий для локального запуска.
+- `internal/usecase/source` - адаптер источника новостей.
+- `internal/usecase/rewriter` - адаптер сервиса рерайта.
 - `internal/transport/http` - HTTP API.
-- `Caddyfile` - локальный reverse proxy и заготовка под серверную схему.
+- `Caddyfile` - конфиг локального reverse proxy.
 - `Makefile` - команды для разработки и запуска.
 
 ## Что уже есть
@@ -51,26 +51,4 @@ Swagger UI будет доступен по адресу `http://localhost:8080/
 
 1. Поднять API: `make run`
 2. В другом терминале поднять Caddy: `make caddy-run`
-3. Открыть:
-   - `http://localhost/health`
-   - `http://localhost/docs`
-
-В этой конфигурации Go-сервис слушает `127.0.0.1:8080`, а Caddy принимает внешний HTTP на `:80` и проксирует запросы внутрь.
-
-## Серверная схема
-
-Для серверной версии этот же `Caddyfile` можно использовать как основу:
-
-- Caddy принимает трафик снаружи.
-- Go API работает как внутренний сервис.
-- при необходимости включается `auto_https` и ставится домен.
-
-Примерно это потом можно завернуть в `systemd` или `docker-compose`, не меняя архитектуру приложения.
-
-## Что дальше
-
-1. Подключить реальный источник новостей: RSS/API.
-2. Подключить SQLite/Postgres вместо in-memory.
-3. Подключить реальный AI rewrite adapter.
-4. Добавить валидацию фактов и описать стратегию в README.
-5. Поднять frontend-грид новостей и экран сравнения original/rewrite.
+3. Открыть `http://localhost/health` и `http://localhost/docs`
