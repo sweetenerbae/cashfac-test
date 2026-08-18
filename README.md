@@ -1,54 +1,36 @@
-# Cash Factories Test Backend
+# Cash Factories Test Task
 
-Сервис для тестового задания Cash Factories: получение реальных новостей, сохранение и выдача версий текста в разных эмоциональных режимах.
+Репозиторий организован как монорепа.
 
-## Архитектура
+## Структура
 
-- `cmd/api` - точка входа.
-- `internal/app` - сборка зависимостей и запуск HTTP-сервера.
-- `internal/config` - конфигурация.
-- `internal/domain` - доменные модели и интерфейсы.
-- `internal/usecase` - бизнес-логика.
-- `internal/usecase/storage` - in-memory репозиторий для локального запуска.
-- `internal/usecase/source` - адаптер источника новостей.
-- `internal/usecase/rewriter` - адаптер сервиса рерайта.
-- `internal/transport/http` - HTTP API.
-- `Caddyfile` - конфиг локального reverse proxy.
-- `Makefile` - команды для разработки и запуска.
+- `backend` - Go API
+- `frontend` - клиентская часть
 
-## Что уже есть
-
-- `GET /health`
-- `POST /api/v1/news/sync?mood=neutral`
-- `GET /api/v1/news?mood=neutral`
-- `GET /api/v1/news/{id}`
-- `GET /docs`
-- `GET /openapi.yaml`
-
-## Как запустить
+## Быстрый старт
 
 ```bash
 make run
 ```
 
-По умолчанию сервис стартует на `:8080`.
+Команда запускает backend из корня репозитория.
 
-Swagger UI будет доступен по адресу `http://localhost:8080/docs`.
+Swagger UI:
 
-## Make targets
+- `http://localhost:8080/docs`
 
-- `make fmt` - форматирование Go-кода.
-- `make build` - сборка бинарника в `./bin`.
-- `make run` - запуск API напрямую.
-- `make dev` - локальный запуск с `HTTP_PORT=8080`.
-- `make test` - запуск тестов.
-- `make clean` - очистка артефактов.
-- `make swagger` - подсказка по Swagger endpoint'ам.
-- `make caddy-validate` - проверка `Caddyfile`.
-- `make caddy-run` - запуск Caddy как reverse proxy.
+Health check:
 
-## Локальная схема
+- `http://localhost:8080/health`
 
-1. Поднять API: `make run`
-2. В другом терминале поднять Caddy: `make caddy-run`
-3. Открыть `http://localhost/health` и `http://localhost/docs`
+## Команды
+
+- `make run` - запуск backend
+- `make dev` - запуск backend в dev-режиме
+- `make build` - сборка backend
+- `make test` - тесты backend
+- `make fmt` - форматирование backend
+- `make caddy-run` - запуск Caddy для backend
+- `make frontend-install` - установка frontend-зависимостей
+- `make frontend-dev` - запуск Vite dev server
+- `make frontend-build` - сборка frontend

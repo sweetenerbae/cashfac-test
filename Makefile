@@ -1,34 +1,40 @@
-APP_NAME := cashfac-news-api
-MAIN_PKG := ./cmd/api
-BUILD_DIR := ./bin
-GO_FILES := $(shell find . -name '*.go' -type f)
+BACKEND_DIR := ./backend
+FRONTEND_DIR := ./frontend
 
-.PHONY: fmt build run dev clean test swagger caddy-run caddy-validate
-
-fmt:
-	gofmt -w $(GO_FILES)
-
-build:
-	go build -o $(BUILD_DIR)/$(APP_NAME) $(MAIN_PKG)
+.PHONY: run dev build test fmt clean swagger caddy-run caddy-validate frontend-install frontend-dev frontend-build
 
 run:
-	@go run $(MAIN_PKG)
+	@$(MAKE) -C $(BACKEND_DIR) run
 
 dev:
-	@HTTP_PORT=8080 go run $(MAIN_PKG)
+	@$(MAKE) -C $(BACKEND_DIR) dev
+
+build:
+	@$(MAKE) -C $(BACKEND_DIR) build
 
 test:
-	go test ./...
+	@$(MAKE) -C $(BACKEND_DIR) test
+
+fmt:
+	@$(MAKE) -C $(BACKEND_DIR) fmt
 
 clean:
-	rm -rf $(BUILD_DIR)
+	@$(MAKE) -C $(BACKEND_DIR) clean
 
 swagger:
-	@echo "Swagger UI: http://localhost:8080/docs"
-	@echo "OpenAPI spec: http://localhost:8080/openapi.yaml"
-
-caddy-validate:
-	caddy validate --config Caddyfile
+	@$(MAKE) -C $(BACKEND_DIR) swagger
 
 caddy-run:
-	caddy run --config Caddyfile
+	@$(MAKE) -C $(BACKEND_DIR) caddy-run
+
+caddy-validate:
+	@$(MAKE) -C $(BACKEND_DIR) caddy-validate
+
+frontend-install:
+	@cd $(FRONTEND_DIR) && npm install
+
+frontend-dev:
+	@cd $(FRONTEND_DIR) && npm run dev
+
+frontend-build:
+	@cd $(FRONTEND_DIR) && npm run build
