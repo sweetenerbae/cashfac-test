@@ -3,7 +3,7 @@ import { formatDate } from "../utils/news";
 export function NewsDetail({ isLoading, selectedNews }) {
   if (isLoading) {
     return (
-      <div className="detail-skeleton" aria-hidden="true">
+      <div className="detail detail--article detail-skeleton" aria-hidden="true">
         <div className="skeleton skeleton--detail-title" />
         <div className="skeleton skeleton--detail-meta" />
         <div className="compare compare--detail-loading">
@@ -26,7 +26,7 @@ export function NewsDetail({ isLoading, selectedNews }) {
 
   if (!selectedNews) {
     return (
-      <div className="empty-state empty-state--detail">
+      <div className="empty-state empty-state--detail empty-state--wide">
         <h3>Пока нечего показывать</h3>
         <p>После загрузки новостей выбери карточку, и здесь появится подробное сравнение.</p>
       </div>
@@ -34,7 +34,7 @@ export function NewsDetail({ isLoading, selectedNews }) {
   }
 
   return (
-    <>
+    <article className="detail detail--article">
       <div className="detail__summary">
         <h3>{selectedNews.Title}</h3>
         <p>
@@ -60,6 +60,6 @@ export function NewsDetail({ isLoading, selectedNews }) {
           </div>
         </section>
       </div>
-    </>
+    </article>
   );
 }

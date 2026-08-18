@@ -40,6 +40,7 @@ func (h *Handler) registerRoutes() {
 	h.mux.HandleFunc("/docs/swagger-ui.css", h.handleSwaggerCSS)
 	h.mux.HandleFunc("/docs/swagger-ui-bundle.js", h.handleSwaggerJS)
 	h.mux.HandleFunc("/openapi.yaml", h.handleOpenAPISpec)
+	h.mux.HandleFunc("/api/v1/news/by-external", h.handleGetNewsByExternalID)
 	h.mux.HandleFunc("/api/v1/news/rewrite", h.handleRewriteNews)
 	h.mux.HandleFunc("/api/v1/news/sync", h.handleSyncNews)
 	h.mux.HandleFunc("/api/v1/jobs/", h.handleGetJob)
@@ -47,8 +48,35 @@ func (h *Handler) registerRoutes() {
 	h.mux.HandleFunc("/api/v1/news", h.handleListNews)
 }
 
+func (h *Handler) handleGetNewsByExternalID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+
+	externalID := strings.TrimSpace(r.URL.Query().Get("external_id"))
+	if externalID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "external_id is required"})
+		return
+	}
+
+	mood := domain.Mood(r.URL.Query().Get("mood"))
+
+	item, err := h.newsUseCase.GetByExternalID(r.Context(), externalID, mood)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, domain.ErrNewsNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, item)
+}
+
 func (h *Handler) handleRewriteNews(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodPost && r.Method != http.MethodGet {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		return
 	}

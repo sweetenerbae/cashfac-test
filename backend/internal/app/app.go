@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"cashfac-test/internal/config"
@@ -22,6 +23,9 @@ type App struct {
 }
 
 func New() (*App, error) {
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+
 	cfg := config.Load()
 
 	newsRepo, err := storage.NewSQLiteNewsRepository(cfg.Store.SQLitePath)
@@ -38,7 +42,7 @@ func New() (*App, error) {
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTP.Port),
-		Handler:           handler.Router(),
+		Handler:           withRequestLogging(handler.Router()),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -79,4 +83,12 @@ func buildRewriterClient(cfg config.Config) domain.Rewriter {
 
 	log.Printf("rewriter: noop (ZAI_API_KEY is not set)")
 	return rewriter.NewNoopClient()
+}
+
+func withRequestLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startedAt := time.Now()
+		next.ServeHTTP(w, r)
+		log.Printf("request: method=%s path=%s duration=%s", r.Method, r.URL.RequestURI(), time.Since(startedAt).Round(time.Millisecond))
+	})
 }

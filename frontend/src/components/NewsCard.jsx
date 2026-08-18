@@ -1,16 +1,15 @@
 import { excerpt, formatDate } from "../utils/news";
-
-export function NewsCard({ isActive, item, onSelect }) {
+export function NewsCard({ isActive, item, onOpen }) {
   return (
     <article
       className={isActive ? "card card--active" : "card"}
-      onClick={() => onSelect(item.ID)}
+      onClick={() => onOpen(item.ExternalID)}
       role="button"
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onSelect(item.ID);
+          onOpen(item.ExternalID);
         }
       }}
     >
@@ -22,6 +21,9 @@ export function NewsCard({ isActive, item, onSelect }) {
         <a href={item.SourceURL} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
           Открыть оригинальный источник
         </a>
+      </div>
+      <div className="card__footer">
+        <span className="card__link">Открыть сравнение</span>
       </div>
     </article>
   );

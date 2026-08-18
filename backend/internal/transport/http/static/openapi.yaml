@@ -91,6 +91,87 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    get:
+      summary: Rewrite a selected news item in the requested mood
+      tags:
+        - News
+      parameters:
+        - in: query
+          name: external_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: mood
+          required: false
+          schema:
+            $ref: "#/components/schemas/Mood"
+      responses:
+        "200":
+          description: Rewritten news item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/News"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: News not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/news/by-external:
+    get:
+      summary: Get single news item by source external identifier
+      tags:
+        - News
+      parameters:
+        - in: query
+          name: external_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: mood
+          required: false
+          schema:
+            $ref: "#/components/schemas/Mood"
+      responses:
+        "200":
+          description: News item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/News"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: News not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/news/{id}:
     get:
       summary: Get single news item

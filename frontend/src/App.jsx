@@ -1,112 +1,70 @@
-import { NewsCard } from "./components/NewsCard";
-import { NewsDetail } from "./components/NewsDetail";
-import { NewsSkeletonGrid } from "./components/NewsSkeletonGrid";
-import { moods } from "./constants/moods";
+import { useEffect, useState } from "react";
+import { NewsArticlePage } from "./pages/NewsArticlePage";
+import { NewsFeedPage } from "./pages/NewsFeedPage";
 import { useNewsPage } from "./hooks/useNewsPage";
 
-function App() {
-  const {
-    activeMood,
-    error,
-    isBootstrapping,
-    isDetailLoading,
-    isLoading,
-    isSyncing,
-    loadNews,
-    news,
-    selectedExternalID,
-    selectedNews,
-    setActiveMood,
-    setSelectedId,
-    status,
-    syncNews
-  } = useNewsPage();
+const articlePathPrefix = "/news/";
 
-  return (
-    <div className="page">
-      <header className="hero">
-        <div className="hero__copy">
-          <p className="eyebrow">Тестовое задание Cash Factories</p>
-          <h1>Новости с переключением эмоционального режима.</h1>
-          <p className="hero__text">
-            Одни и те же реальные новости можно читать по-разному: спокойно,
-            иронично, радостно или с более мрачной интонацией. Оригинал всегда
-            остается под рукой, чтобы сравнить подачу и сами факты.
-          </p>
-        </div>
+function getRoute(pathname) {
+  if (pathname.startsWith(articlePathPrefix)) {
+    const rawExternalID = pathname.slice(articlePathPrefix.length);
+    return {
+      name: "article",
+      externalID: decodeURIComponent(rawExternalID)
+    };
+  }
 
-        <div className="hero__panel">
-          <span className="panel__label">Режим</span>
-          <div className="moods">
-            {moods.map((mood) => (
-              <button
-                key={mood.id}
-                type="button"
-                className={mood.id === activeMood ? "mood mood--active" : "mood"}
-                onClick={() => setActiveMood(mood.id)}
-                disabled={isLoading || isSyncing}
-              >
-                {mood.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="hero__actions">
-            <button
-              type="button"
-              className="action-button"
-              onClick={() => void syncNews(activeMood)}
-              disabled={isSyncing}
-            >
-              {isSyncing ? "Загружаю..." : "Загрузить новости"}
-            </button>
-            <button
-              type="button"
-              className="action-button action-button--ghost"
-              onClick={() => void loadNews(activeMood)}
-              disabled={isLoading}
-            >
-              {isLoading ? "Обновляю..." : "Обновить список"}
-            </button>
-          </div>
-
-          <p className="status-text">{status}</p>
-          {error ? <p className="error-text">{error}</p> : null}
-        </div>
-      </header>
-
-      <main className="layout">
-        <section className="news-grid">
-          {isBootstrapping || isLoading ? (
-            <NewsSkeletonGrid />
-          ) : news.length === 0 ? (
-            <div className="empty-state">
-              <h2>Новостей пока нет</h2>
-              <p>Сделай первую синхронизацию, и здесь появятся реальные публикации из The Guardian.</p>
-            </div>
-          ) : (
-            news.map((item) => (
-              <NewsCard
-                key={item.ID}
-                isActive={item.ExternalID === selectedExternalID}
-                item={item}
-                onSelect={setSelectedId}
-              />
-            ))
-          )}
-        </section>
-
-        <aside className="detail">
-          <div className="detail__head">
-            <span className="detail__eyebrow">Выбранная новость</span>
-            <h2>Сравнение исходного и переписанного текста</h2>
-          </div>
-
-          <NewsDetail isLoading={isBootstrapping || isDetailLoading} selectedNews={selectedNews} />
-        </aside>
-      </main>
-    </div>
-  );
+  return {
+    name: "feed",
+    externalID: ""
+  };
 }
 
-export default App;
+export default function App() {
+  const newsPage = useNewsPage();
+  const [route, setRoute] = useState(() => getRoute(window.location.pathname));
+
+  useEffect(() => {
+    function handlePopState() {
+      setRoute(getRoute(window.location.pathname));
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (route.name !== "article" || !route.externalID) {
+      return;
+    }
+
+    newsPage.setSelectedId(route.externalID);
+  }, [route.name, route.externalID]);
+
+  function navigate(pathname) {
+    if (pathname === window.location.pathname) {
+      return;
+    }
+
+    window.history.pushState({}, "", pathname);
+    setRoute(getRoute(pathname));
+  }
+
+  function openNews(externalID) {
+    newsPage.setSelectedId(externalID);
+    navigate(`${articlePathPrefix}${encodeURIComponent(externalID)}`);
+  }
+
+  function openFeed() {
+    newsPage.setSelectedId("");
+    navigate("/");
+  }
+
+  if (route.name === "article") {
+    return <NewsArticlePage {...newsPage} onBack={openFeed} onOpenNews={openNews} />;
+  }
+
+  return <NewsFeedPage {...newsPage} onOpenNews={openNews} />;
+}

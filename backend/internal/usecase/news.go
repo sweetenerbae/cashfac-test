@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"cashfac-test/internal/domain"
@@ -92,6 +93,25 @@ func (uc *NewsUseCase) Get(ctx context.Context, id string) (domain.News, error) 
 	return uc.repo.GetByID(ctx, id)
 }
 
+func (uc *NewsUseCase) GetByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.News, error) {
+	if mood != "" {
+		item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, mood)
+		if err == nil {
+			return item, nil
+		}
+		if !errors.Is(err, domain.ErrNewsNotFound) {
+			return domain.News{}, fmt.Errorf("get news by external id and mood: %w", err)
+		}
+	}
+
+	item, err := uc.repo.GetByExternalID(ctx, externalID)
+	if err != nil {
+		return domain.News{}, fmt.Errorf("get news by external id: %w", err)
+	}
+
+	return item, nil
+}
+
 func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.News, error) {
 	if mood == "" {
 		mood = domain.MoodNeutral
@@ -99,7 +119,9 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 
 	item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, mood)
 	if err == nil {
-		return item, nil
+		if shouldReuseRewrite(item, mood) {
+			return item, nil
+		}
 	}
 	if !errors.Is(err, domain.ErrNewsNotFound) {
 		return domain.News{}, fmt.Errorf("get news by external id and mood: %w", err)
@@ -144,4 +166,84 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 func checksum(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
+}
+
+func shouldReuseRewrite(item domain.News, mood domain.Mood) bool {
+	trimmed := strings.TrimSpace(item.RewrittenText)
+	if trimmed == "" {
+		return false
+	}
+
+	if strings.HasPrefix(strings.ToLower(trimmed), "["+string(mood)+"]") {
+		return false
+	}
+
+	normalizedRewrite := normalizeRewriteText(trimmed)
+	normalizedOriginal := normalizeRewriteText(item.OriginalText)
+	if normalizedRewrite == normalizedOriginal {
+		return false
+	}
+
+	if tokenOverlapRatio(normalizedOriginal, normalizedRewrite) > 0.78 {
+		return false
+	}
+
+	return true
+}
+
+func normalizeRewriteText(value string) string {
+	return strings.Join(strings.Fields(strings.ToLower(value)), " ")
+}
+
+func tokenOverlapRatio(a, b string) float64 {
+	if a == "" || b == "" {
+		return 0
+	}
+
+	aTokens := strings.Fields(a)
+	bTokens := strings.Fields(b)
+	if len(aTokens) == 0 || len(bTokens) == 0 {
+		return 0
+	}
+
+	bagA := make(map[string]int, len(aTokens))
+	bagB := make(map[string]int, len(bTokens))
+	for _, token := range aTokens {
+		bagA[token]++
+	}
+	for _, token := range bTokens {
+		bagB[token]++
+	}
+
+	intersection := 0
+	union := 0
+	seen := make(map[string]struct{}, len(bagA)+len(bagB))
+
+	for token, countA := range bagA {
+		countB := bagB[token]
+		if countA < countB {
+			intersection += countA
+		} else {
+			intersection += countB
+		}
+		if countA > countB {
+			union += countA
+		} else {
+			union += countB
+		}
+		seen[token] = struct{}{}
+	}
+
+	for token, countB := range bagB {
+		if _, ok := seen[token]; ok {
+			continue
+		}
+		union += countB
+	}
+
+	if union == 0 {
+		return 0
+	}
+
+	return float64(intersection) / float64(union)
 }
