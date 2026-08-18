@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"cashfac-test/internal/domain"
@@ -11,14 +12,16 @@ import (
 )
 
 type Handler struct {
-	newsUseCase *usecase.NewsUseCase
-	mux         *http.ServeMux
+	newsUseCase     *usecase.NewsUseCase
+	syncJobsUseCase *usecase.SyncJobsUseCase
+	mux             *http.ServeMux
 }
 
-func NewHandler(newsUseCase *usecase.NewsUseCase) *Handler {
+func NewHandler(newsUseCase *usecase.NewsUseCase, syncJobsUseCase *usecase.SyncJobsUseCase) *Handler {
 	h := &Handler{
-		newsUseCase: newsUseCase,
-		mux:         http.NewServeMux(),
+		newsUseCase:     newsUseCase,
+		syncJobsUseCase: syncJobsUseCase,
+		mux:             http.NewServeMux(),
 	}
 
 	h.registerRoutes()
@@ -37,9 +40,41 @@ func (h *Handler) registerRoutes() {
 	h.mux.HandleFunc("/docs/swagger-ui.css", h.handleSwaggerCSS)
 	h.mux.HandleFunc("/docs/swagger-ui-bundle.js", h.handleSwaggerJS)
 	h.mux.HandleFunc("/openapi.yaml", h.handleOpenAPISpec)
+	h.mux.HandleFunc("/api/v1/news/rewrite", h.handleRewriteNews)
 	h.mux.HandleFunc("/api/v1/news/sync", h.handleSyncNews)
+	h.mux.HandleFunc("/api/v1/jobs/", h.handleGetJob)
 	h.mux.HandleFunc("/api/v1/news/", h.handleGetNews)
 	h.mux.HandleFunc("/api/v1/news", h.handleListNews)
+}
+
+func (h *Handler) handleRewriteNews(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+
+	externalID := strings.TrimSpace(r.URL.Query().Get("external_id"))
+	if externalID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "external_id is required"})
+		return
+	}
+
+	mood := domain.Mood(r.URL.Query().Get("mood"))
+	if mood == "" {
+		mood = domain.MoodNeutral
+	}
+
+	item, err := h.newsUseCase.RewriteByExternalID(r.Context(), externalID, mood)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, domain.ErrNewsNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (h *Handler) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -101,16 +136,23 @@ func (h *Handler) handleSyncNews(w http.ResponseWriter, r *http.Request) {
 		mood = domain.MoodNeutral
 	}
 
-	count, err := h.newsUseCase.Sync(r.Context(), 10, mood)
+	limit := 10
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		parsedLimit, err := strconv.Atoi(rawLimit)
+		if err != nil || parsedLimit <= 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "limit must be a positive integer"})
+			return
+		}
+		limit = parsedLimit
+	}
+
+	job, err := h.syncJobsUseCase.Start(r.Context(), limit, mood)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "sync completed",
-		"count":  count,
-	})
+	writeJSON(w, http.StatusAccepted, job)
 }
 
 func (h *Handler) handleListNews(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +195,31 @@ func (h *Handler) handleGetNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, item)
+}
+
+func (h *Handler) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/jobs/")
+	if id == "" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "job not found"})
+		return
+	}
+
+	job, err := h.syncJobsUseCase.Get(r.Context(), id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, domain.ErrJobNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, job)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

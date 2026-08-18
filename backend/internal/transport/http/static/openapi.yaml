@@ -48,6 +48,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/news/rewrite:
+    post:
+      summary: Rewrite a selected news item in the requested mood
+      tags:
+        - News
+      parameters:
+        - in: query
+          name: external_id
+          required: true
+          schema:
+            type: string
+          description: External article identifier from the source
+        - in: query
+          name: mood
+          required: false
+          schema:
+            $ref: "#/components/schemas/Mood"
+          description: Mood used for rewriting
+      responses:
+        "200":
+          description: Rewritten news item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/News"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: News not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/news/{id}:
     get:
       summary: Get single news item
@@ -90,13 +133,51 @@ paths:
           schema:
             $ref: "#/components/schemas/Mood"
           description: Mood used for rewriting
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+          description: Number of latest news items to fetch and rewrite
       responses:
-        "200":
-          description: Sync completed
+        "202":
+          description: Sync job created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StatusResponse"
+                $ref: "#/components/schemas/SyncJob"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/jobs/{id}:
+    get:
+      summary: Get sync job status
+      tags:
+        - Jobs
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sync job state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncJob"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal server error
           content:
@@ -132,6 +213,34 @@ components:
       required:
         - status
         - count
+    SyncJob:
+      type: object
+      properties:
+        ID:
+          type: string
+        Status:
+          type: string
+          enum:
+            - pending
+            - running
+            - completed
+            - failed
+        Mood:
+          $ref: "#/components/schemas/Mood"
+        Limit:
+          type: integer
+        ProcessedCount:
+          type: integer
+        TotalCount:
+          type: integer
+        Error:
+          type: string
+        CreatedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
+          type: string
+          format: date-time
     ErrorResponse:
       type: object
       properties:

@@ -24,12 +24,17 @@ type App struct {
 func New() (*App, error) {
 	cfg := config.Load()
 
-	newsRepo := storage.NewInMemoryNewsRepository()
-	rewriterClient := rewriter.NewNoopClient()
+	newsRepo, err := storage.NewSQLiteNewsRepository(cfg.Store.SQLitePath)
+	if err != nil {
+		return nil, fmt.Errorf("init sqlite repository: %w", err)
+	}
+	jobRepo := storage.NewInMemorySyncJobRepository()
+	rewriterClient := buildRewriterClient(cfg)
 	sourceClient := buildSourceClient(cfg)
 
 	newsUseCase := usecase.NewNewsUseCase(newsRepo, sourceClient, rewriterClient)
-	handler := httptransport.NewHandler(newsUseCase)
+	syncJobsUseCase := usecase.NewSyncJobsUseCase(jobRepo, newsUseCase)
+	handler := httptransport.NewHandler(newsUseCase, syncJobsUseCase)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTP.Port),
@@ -48,6 +53,7 @@ func (a *App) Run() error {
 	log.Printf("http address: http://localhost:%d", a.port)
 	log.Printf("health check: http://localhost:%d/health", a.port)
 	log.Printf("swagger docs: http://localhost:%d/docs", a.port)
+	log.Printf("storage: sqlite")
 	return a.server.ListenAndServe()
 }
 
@@ -63,4 +69,14 @@ func buildSourceClient(cfg config.Config) domain.SourceClient {
 
 	log.Printf("news source: stub (GUARDIAN_API_KEY is not set)")
 	return source.NewStubClient()
+}
+
+func buildRewriterClient(cfg config.Config) domain.Rewriter {
+	if cfg.AI.ZAIAPIKey != "" {
+		log.Printf("rewriter: Z.ai (%s)", cfg.AI.ZAIModel)
+		return rewriter.NewZAIClient(cfg.AI.ZAIAPIKey, cfg.AI.ZAIBaseURL, cfg.AI.ZAIModel)
+	}
+
+	log.Printf("rewriter: noop (ZAI_API_KEY is not set)")
+	return rewriter.NewNoopClient()
 }

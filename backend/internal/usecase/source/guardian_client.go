@@ -45,6 +45,7 @@ func (c *GuardianClient) FetchLatest(ctx context.Context, limit int) ([]domain.S
 	query.Set("api-key", c.apiKey)
 	query.Set("page-size", fmt.Sprintf("%d", limit))
 	query.Set("order-by", "newest")
+	query.Set("type", "article")
 	query.Set("show-fields", "headline,trailText,bodyText")
 	requestURL.RawQuery = query.Encode()
 

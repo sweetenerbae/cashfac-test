@@ -9,10 +9,12 @@ function App() {
     activeMood,
     error,
     isBootstrapping,
+    isDetailLoading,
     isLoading,
     isSyncing,
     loadNews,
     news,
+    selectedExternalID,
     selectedNews,
     setActiveMood,
     setSelectedId,
@@ -27,8 +29,9 @@ function App() {
           <p className="eyebrow">Тестовое задание Cash Factories</p>
           <h1>Новости с переключением эмоционального режима.</h1>
           <p className="hero__text">
-            Каркас клиентской части для грида реальных новостей, выбора
-            настроения и сравнения исходного текста с переписанной версией.
+            Одни и те же реальные новости можно читать по-разному: спокойно,
+            иронично, радостно или с более мрачной интонацией. Оригинал всегда
+            остается под рукой, чтобы сравнить подачу и сами факты.
           </p>
         </div>
 
@@ -74,7 +77,7 @@ function App() {
 
       <main className="layout">
         <section className="news-grid">
-          {isBootstrapping || isLoading || isSyncing ? (
+          {isBootstrapping || isLoading ? (
             <NewsSkeletonGrid />
           ) : news.length === 0 ? (
             <div className="empty-state">
@@ -85,7 +88,7 @@ function App() {
             news.map((item) => (
               <NewsCard
                 key={item.ID}
-                isActive={item.ID === selectedNews?.ID}
+                isActive={item.ExternalID === selectedExternalID}
                 item={item}
                 onSelect={setSelectedId}
               />
@@ -99,7 +102,7 @@ function App() {
             <h2>Сравнение исходного и переписанного текста</h2>
           </div>
 
-          <NewsDetail isLoading={isBootstrapping || isLoading || isSyncing} selectedNews={selectedNews} />
+          <NewsDetail isLoading={isBootstrapping || isDetailLoading} selectedNews={selectedNews} />
         </aside>
       </main>
     </div>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,6 +17,8 @@ type NewsUseCase struct {
 	rewriter domain.Rewriter
 }
 
+type SyncProgressFunc func(processed, total int)
+
 func NewNewsUseCase(repo domain.NewsRepository, source domain.SourceClient, rewriter domain.Rewriter) *NewsUseCase {
 	return &NewsUseCase{
 		repo:     repo,
@@ -25,13 +28,21 @@ func NewNewsUseCase(repo domain.NewsRepository, source domain.SourceClient, rewr
 }
 
 func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) (int, error) {
+	return uc.sync(ctx, limit, mood, nil)
+}
+
+func (uc *NewsUseCase) SyncWithProgress(ctx context.Context, limit int, mood domain.Mood, progressFn SyncProgressFunc) (int, error) {
+	return uc.sync(ctx, limit, mood, progressFn)
+}
+
+func (uc *NewsUseCase) sync(ctx context.Context, limit int, mood domain.Mood, progressFn SyncProgressFunc) (int, error) {
 	items, err := uc.source.FetchLatest(ctx, limit)
 	if err != nil {
 		return 0, fmt.Errorf("fetch latest news: %w", err)
 	}
 
-	result := make([]domain.News, 0, len(items))
 	now := time.Now().UTC()
+	savedCount := 0
 
 	for _, item := range items {
 		rewritten, err := uc.rewriter.Rewrite(ctx, domain.RewriteRequest{
@@ -40,13 +51,12 @@ func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) (i
 			Mood:  mood,
 		})
 		if err != nil {
-			return 0, fmt.Errorf("rewrite news %s: %w", item.ExternalID, err)
+			return savedCount, fmt.Errorf("rewrite news %s: %w", item.ExternalID, err)
 		}
 
 		publishedAt, _ := time.Parse(time.RFC3339, item.PublishedRaw)
 		originalDigest := checksum(item.Text)
-
-		result = append(result, domain.News{
+		newsItem := domain.News{
 			ID:             checksum(item.ExternalID + string(mood)),
 			Title:          item.Title,
 			OriginalText:   item.Text,
@@ -59,14 +69,19 @@ func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) (i
 			ExternalID:     item.ExternalID,
 			FactChecksum:   rewritten.FactChecksum,
 			OriginalDigest: originalDigest,
-		})
+		}
+
+		if err := uc.repo.Save(ctx, newsItem); err != nil {
+			return savedCount, fmt.Errorf("save news %s: %w", item.ExternalID, err)
+		}
+
+		savedCount++
+		if progressFn != nil {
+			progressFn(savedCount, len(items))
+		}
 	}
 
-	if err := uc.repo.SaveBatch(ctx, result); err != nil {
-		return 0, fmt.Errorf("save batch: %w", err)
-	}
-
-	return len(result), nil
+	return savedCount, nil
 }
 
 func (uc *NewsUseCase) List(ctx context.Context, mood domain.Mood) ([]domain.News, error) {
@@ -75,6 +90,55 @@ func (uc *NewsUseCase) List(ctx context.Context, mood domain.Mood) ([]domain.New
 
 func (uc *NewsUseCase) Get(ctx context.Context, id string) (domain.News, error) {
 	return uc.repo.GetByID(ctx, id)
+}
+
+func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.News, error) {
+	if mood == "" {
+		mood = domain.MoodNeutral
+	}
+
+	item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, mood)
+	if err == nil {
+		return item, nil
+	}
+	if !errors.Is(err, domain.ErrNewsNotFound) {
+		return domain.News{}, fmt.Errorf("get news by external id and mood: %w", err)
+	}
+
+	baseItem, err := uc.repo.GetByExternalID(ctx, externalID)
+	if err != nil {
+		return domain.News{}, fmt.Errorf("get base news by external id: %w", err)
+	}
+
+	rewritten, err := uc.rewriter.Rewrite(ctx, domain.RewriteRequest{
+		Title: baseItem.Title,
+		Text:  baseItem.OriginalText,
+		Mood:  mood,
+	})
+	if err != nil {
+		return domain.News{}, fmt.Errorf("rewrite news by external id %s: %w", externalID, err)
+	}
+
+	item = domain.News{
+		ID:             checksum(baseItem.ExternalID + string(mood)),
+		Title:          baseItem.Title,
+		OriginalText:   baseItem.OriginalText,
+		RewrittenText:  rewritten.Text,
+		Mood:           mood,
+		SourceName:     baseItem.SourceName,
+		SourceURL:      baseItem.SourceURL,
+		PublishedAt:    baseItem.PublishedAt,
+		CreatedAt:      time.Now().UTC(),
+		ExternalID:     baseItem.ExternalID,
+		FactChecksum:   rewritten.FactChecksum,
+		OriginalDigest: baseItem.OriginalDigest,
+	}
+
+	if err := uc.repo.Save(ctx, item); err != nil {
+		return domain.News{}, fmt.Errorf("save rewritten news by external id %s: %w", externalID, err)
+	}
+
+	return item, nil
 }
 
 func checksum(value string) string {

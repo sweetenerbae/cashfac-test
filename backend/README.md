@@ -39,6 +39,18 @@ make run
 GUARDIAN_API_KEY=your_key make run
 ```
 
+Для реального эмоционального рерайта можно передать ключ Z.ai:
+
+```bash
+GUARDIAN_API_KEY=your_key ZAI_API_KEY=your_key make run
+```
+
+По умолчанию новости сохраняются в SQLite:
+
+```bash
+SQLITE_PATH=data/news.db
+```
+
 ## Docker
 
 Из корня репозитория:
