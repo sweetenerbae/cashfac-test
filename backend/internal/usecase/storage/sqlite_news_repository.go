@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -84,6 +85,33 @@ func (r *SQLiteNewsRepository) SaveBatch(ctx context.Context, items []domain.New
 		if err := r.Save(ctx, item); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (r *SQLiteNewsRepository) PruneByExternalIDs(ctx context.Context, externalIDs []string) error {
+	if len(externalIDs) == 0 {
+		if _, err := r.db.ExecContext(ctx, `DELETE FROM news`); err != nil {
+			return fmt.Errorf("prune sqlite news: %w", err)
+		}
+		return nil
+	}
+
+	placeholders := make([]string, 0, len(externalIDs))
+	args := make([]any, 0, len(externalIDs))
+	for _, externalID := range externalIDs {
+		placeholders = append(placeholders, "?")
+		args = append(args, externalID)
+	}
+
+	query := fmt.Sprintf(
+		`DELETE FROM news WHERE external_id NOT IN (%s)`,
+		strings.Join(placeholders, ", "),
+	)
+
+	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
+		return fmt.Errorf("prune sqlite news: %w", err)
 	}
 
 	return nil

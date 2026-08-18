@@ -36,9 +36,19 @@ export function NewsDetail({ isLoading, selectedNews }) {
   return (
     <article className="detail detail--article">
       <div className="detail__summary">
+        <div className="detail__summary-meta">
+          <span className="detail__badge">Оригинальный материал</span>
+          <span className="detail__divider" aria-hidden="true">
+            /
+          </span>
+          <span className="detail__source-line">
+            {selectedNews.SourceName} · {formatDate(selectedNews.PublishedAt)}
+          </span>
+        </div>
         <h3>{selectedNews.Title}</h3>
-        <p>
-          {selectedNews.SourceName} · {formatDate(selectedNews.PublishedAt)}
+        <p className="detail__lead">
+          Ниже можно сравнить исходную подачу материала и версию с выбранной эмоциональной интонацией, не меняя сами
+          факты.
         </p>
         <a href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
           Читать оригинал на сайте источника
@@ -46,15 +56,21 @@ export function NewsDetail({ isLoading, selectedNews }) {
       </div>
 
       <div className="compare">
-        <section className="compare__panel">
-          <h3>Оригинал</h3>
+        <section className="compare__panel compare__panel--original">
+          <div className="compare__panel-head">
+            <span className="compare__eyebrow">Исходный текст</span>
+            <h3>Оригинал</h3>
+          </div>
           <div className="article-text">
             <p>{selectedNews.OriginalText}</p>
           </div>
         </section>
 
-        <section className="compare__panel">
-          <h3>Рерайт</h3>
+        <section className="compare__panel compare__panel--rewrite">
+          <div className="compare__panel-head">
+            <span className="compare__eyebrow">Новая подача</span>
+            <h3>Рерайт</h3>
+          </div>
           <div className="article-text">
             <p>{selectedNews.RewrittenText}</p>
           </div>

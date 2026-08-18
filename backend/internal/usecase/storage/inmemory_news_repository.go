@@ -39,6 +39,25 @@ func (r *InMemoryNewsRepository) SaveBatch(_ context.Context, items []domain.New
 	return nil
 }
 
+func (r *InMemoryNewsRepository) PruneByExternalIDs(_ context.Context, externalIDs []string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	allowed := make(map[string]struct{}, len(externalIDs))
+	for _, externalID := range externalIDs {
+		allowed[externalID] = struct{}{}
+	}
+
+	for id, item := range r.items {
+		if _, ok := allowed[item.ExternalID]; ok {
+			continue
+		}
+		delete(r.items, id)
+	}
+
+	return nil
+}
+
 func (r *InMemoryNewsRepository) List(_ context.Context, mood domain.Mood) ([]domain.News, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

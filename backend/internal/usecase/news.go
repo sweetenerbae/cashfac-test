@@ -44,8 +44,11 @@ func (uc *NewsUseCase) sync(ctx context.Context, limit int, mood domain.Mood, pr
 
 	now := time.Now().UTC()
 	savedCount := 0
+	externalIDs := make([]string, 0, len(items))
 
 	for _, item := range items {
+		externalIDs = append(externalIDs, item.ExternalID)
+
 		rewritten, err := uc.rewriter.Rewrite(ctx, domain.RewriteRequest{
 			Title: item.Title,
 			Text:  item.Text,
@@ -79,6 +82,12 @@ func (uc *NewsUseCase) sync(ctx context.Context, limit int, mood domain.Mood, pr
 		savedCount++
 		if progressFn != nil {
 			progressFn(savedCount, len(items))
+		}
+	}
+
+	if mood == domain.MoodNeutral {
+		if err := uc.repo.PruneByExternalIDs(ctx, externalIDs); err != nil {
+			return savedCount, fmt.Errorf("prune stale news: %w", err)
 		}
 	}
 

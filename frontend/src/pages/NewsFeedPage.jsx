@@ -10,7 +10,6 @@ export function NewsFeedPage({
   loadNews,
   news,
   onOpenNews,
-  selectedExternalID,
   status,
   syncNews
 }) {
@@ -65,7 +64,7 @@ export function NewsFeedPage({
           news.map((item) => (
             <NewsCard
               key={item.ID}
-              isActive={item.ExternalID === selectedExternalID}
+              isActive={false}
               item={item}
               onOpen={onOpenNews}
             />
