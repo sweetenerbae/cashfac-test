@@ -1,7 +1,7 @@
 import { defaultMood, getMoodLabel } from "../constants/moods";
 import { formatDate } from "../utils/news";
 
-export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, selectedNews }) {
+export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, selectedNews, showOriginal }) {
   if (isLoading) {
     return (
       <div className="detail detail--article detail-skeleton" aria-hidden="true">
@@ -34,6 +34,10 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, sele
     );
   }
 
+  const currentTitle = showOriginal ? "Оригинал" : activeMood === defaultMood ? "Нейтральная версия" : "Рерайт";
+  const currentEyebrow = showOriginal ? "Исходный текст" : "Текущая подача";
+  const currentText = showOriginal ? selectedNews.OriginalText : selectedNews.RewrittenText;
+
   return (
     <article className="detail detail--article">
       <div className="detail__summary">
@@ -48,42 +52,32 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, sele
         </div>
         <h3>{selectedNews.Title}</h3>
         <p className="detail__lead">
-          Ниже можно сравнить исходную подачу материала и версию с выбранной эмоциональной интонацией, не меняя сами
-          факты.
+          Здесь показана версия материала в выбранной подаче. Оригинальный текст можно открыть отдельной кнопкой,
+          не теряя саму новость и факты.
         </p>
-        <a href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
-          Читать оригинал на сайте источника
-        </a>
+        <div className="detail__actions">
+          <a href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
+            Читать оригинал на сайте источника
+          </a>
+        </div>
       </div>
 
-      <div className="compare">
-        <section className="compare__panel compare__panel--original">
-          <div className="compare__panel-head">
-            <span className="compare__eyebrow">Исходный текст</span>
-            <h3>Оригинал</h3>
+      <section className={showOriginal ? "compare__panel compare__panel--original" : "compare__panel compare__panel--rewrite"}>
+        <div className="compare__panel-head">
+          <span className="compare__eyebrow">{currentEyebrow}</span>
+          <h3>{currentTitle}</h3>
+        </div>
+        {!showOriginal && activeMood !== defaultMood && rewriteFallbackMessage ? (
+          <div className="rewrite-fallback">
+            <p className="rewrite-fallback__title">Режим «{getMoodLabel(activeMood)}» пока недоступен для этой статьи</p>
+            <p>{rewriteFallbackMessage}</p>
           </div>
+        ) : (
           <div className="article-text">
-            <p>{selectedNews.OriginalText}</p>
+            <p>{currentText}</p>
           </div>
-        </section>
-
-        <section className="compare__panel compare__panel--rewrite">
-          <div className="compare__panel-head">
-            <span className="compare__eyebrow">Новая подача</span>
-            <h3>Рерайт</h3>
-          </div>
-          {activeMood !== defaultMood && rewriteFallbackMessage ? (
-            <div className="rewrite-fallback">
-              <p className="rewrite-fallback__title">Режим «{getMoodLabel(activeMood)}» пока недоступен для этой статьи</p>
-              <p>{rewriteFallbackMessage}</p>
-            </div>
-          ) : (
-            <div className="article-text">
-              <p>{selectedNews.RewrittenText}</p>
-            </div>
-          )}
-        </section>
-      </div>
+        )}
+      </section>
     </article>
   );
 }

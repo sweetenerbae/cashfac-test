@@ -1,8 +1,8 @@
 export const moods = [
-  { id: "neutral", label: "Нейтрально", emoji: "🙂" },
-  { id: "happy", label: "Радостно", emoji: "😄" },
-  { id: "sad", label: "Грустно", emoji: "😔" },
-  { id: "ironic", label: "Иронично", emoji: "😏" }
+  { id: "neutral", label: "Нейтрально", emoji: "📰" },
+  { id: "happy", label: "Радостно", emoji: "✨" },
+  { id: "sad", label: "Грустно", emoji: "☔" },
+  { id: "ironic", label: "Иронично", emoji: "🎭" }
 ];
 
 export const defaultMood = "neutral";

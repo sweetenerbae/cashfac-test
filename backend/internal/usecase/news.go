@@ -127,12 +127,10 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 	}
 
 	item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, mood)
-	if err == nil {
-		if shouldReuseRewrite(item, mood) {
-			return item, nil
-		}
+	if err == nil && shouldReuseRewrite(item, mood) {
+		return item, nil
 	}
-	if !errors.Is(err, domain.ErrNewsNotFound) {
+	if err != nil && !errors.Is(err, domain.ErrNewsNotFound) {
 		return domain.News{}, fmt.Errorf("get news by external id and mood: %w", err)
 	}
 

@@ -318,42 +318,15 @@ a {
 }
 
 .article-topbar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-  margin-bottom: 22px;
-  position: sticky;
-  top: 16px;
-  z-index: 20;
-}
-
-.article-topbar__panel {
-  width: 100%;
-  background: rgba(255, 250, 244, 0.9);
-  box-shadow: 0 18px 45px rgba(59, 44, 23, 0.12);
-}
-
-.article-topbar__head {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  align-items: start;
-}
-
-.article-topbar__title {
-  margin: 10px 0 0;
-  font-family: "Instrument Serif", serif;
-  font-size: clamp(1.7rem, 2.8vw, 2.5rem);
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  color: #231d17;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .article-topbar__meta {
   flex: 0 0 auto;
-  margin-top: 2px;
   padding: 10px 14px;
   border-radius: 999px;
   background: rgba(235, 225, 213, 0.75);
@@ -362,13 +335,91 @@ a {
   font-weight: 700;
 }
 
-.moods--article {
-  margin-top: 18px;
+.back-link--strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: #1a1714;
+  color: #fff9f1;
+  box-shadow: 0 18px 34px rgba(45, 33, 17, 0.18);
+}
+
+.back-link__arrow {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.article-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(620px, 680px);
+  gap: 40px;
+  align-items: end;
 }
 
 .article-intro {
-  margin-bottom: 20px;
-  padding: 0 6px;
+  padding: 0 0 26px;
+}
+
+.article-moods-card {
+  align-self: end;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  margin-bottom: 26px;
+  padding: 20px 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(51, 39, 24, 0.1);
+  background: rgba(255, 250, 244, 0.88);
+  box-shadow: 0 20px 48px rgba(62, 44, 20, 0.1);
+}
+
+.article-moods-card__title {
+  margin: 8px 0 0;
+  font-family: "Instrument Serif", serif;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  color: #231d17;
+}
+
+.moods--article {
+  margin-top: 16px;
+}
+
+.moods--compact {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.moods--compact .mood {
+  flex: 1 1 auto;
+  width: auto;
+  justify-content: center;
+  min-width: max-content;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.15;
+  gap: 7px;
+}
+
+.moods--compact .mood__emoji {
+  flex: 0 0 auto;
+}
+
+.moods--compact .mood span:last-child {
+  white-space: nowrap;
+}
+
+.mood--secondary {
+  background: #e1d8cd;
+}
+
+.mood--active-alt {
+  background: #72542b;
+  color: #fffaf2;
 }
 
 .article-layout {
@@ -426,8 +477,15 @@ a {
 
 .detail__summary a {
   display: inline-flex;
-  margin-top: 16px;
   font-weight: 700;
+}
+
+.detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
 }
 
 .compare {
@@ -599,8 +657,14 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .article-topbar {
+  .article-hero {
     grid-template-columns: 1fr;
+  }
+
+  .article-moods-card {
+    margin-top: 0;
+    margin-bottom: 0;
+    align-self: start;
   }
 
   .compare {
@@ -620,22 +684,9 @@ a {
   }
 
   .hero--feed,
-  .feed-head,
-  .article-topbar {
+  .feed-head {
     grid-template-columns: 1fr;
     display: grid;
-  }
-
-  .article-topbar__head {
-    flex-direction: column;
-  }
-
-  .article-topbar__panel {
-    width: 100%;
-  }
-
-  .article-topbar {
-    position: static;
   }
 
   .hero h1 {
@@ -646,6 +697,11 @@ a {
   .article-intro h1 {
     max-width: none;
     font-size: clamp(2.3rem, 12vw, 4rem);
+  }
+
+  .article-topbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -676,9 +732,14 @@ a {
     font-size: 24px;
   }
 
-  .moods--article {
+  .moods--compact {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .moods--compact .mood {
+    width: 100%;
+    min-width: 0;
   }
 
   .mood {
@@ -704,7 +765,17 @@ a {
     font-size: 1.9rem;
   }
 
-  .moods--article {
+  .moods--compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .moods--compact .mood {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .moods--compact {
     grid-template-columns: 1fr;
   }
 
