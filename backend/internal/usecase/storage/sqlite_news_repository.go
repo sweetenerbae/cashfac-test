@@ -141,7 +141,7 @@ func (r *SQLiteNewsRepository) List(ctx context.Context, mood domain.Mood) ([]do
 	}
 	defer rows.Close()
 
-	var result []domain.News
+	result := make([]domain.News, 0)
 	for rows.Next() {
 		item, err := scanNews(rows)
 		if err != nil {

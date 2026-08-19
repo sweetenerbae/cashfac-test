@@ -6,9 +6,13 @@
 	encode gzip zstd
 
 	@backend path /api/* /health /docs /docs/* /openapi.yaml
-	reverse_proxy @backend backend:8080
+	handle @backend {
+		reverse_proxy backend:8080
+	}
 
-	root * /srv
-	try_files {path} /index.html
-	file_server
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
 }

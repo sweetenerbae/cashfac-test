@@ -1,7 +1,8 @@
 import { apiClient } from "./client";
 
-export function getNews(mood) {
-  return apiClient.get(`/api/v1/news?mood=${encodeURIComponent(mood)}`);
+export async function getNews(mood) {
+  const items = await apiClient.get(`/api/v1/news?mood=${encodeURIComponent(mood)}`);
+  return Array.isArray(items) ? items : [];
 }
 
 export function getNewsByExternalID(externalID, mood = "") {
