@@ -68,51 +68,11 @@ paths:
           description: Mood used for rewriting
       responses:
         "200":
-          description: Rewritten news item
+          description: Rewritten news item with LLM usage metrics
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/News"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: News not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    get:
-      summary: Rewrite a selected news item in the requested mood
-      tags:
-        - News
-      parameters:
-        - in: query
-          name: external_id
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: mood
-          required: false
-          schema:
-            $ref: "#/components/schemas/Mood"
-      responses:
-        "200":
-          description: Rewritten news item
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/News"
+                $ref: "#/components/schemas/RewriteResult"
         "400":
           description: Validation error
           content:
@@ -204,16 +164,10 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
   /api/v1/news/sync:
     post:
-      summary: Sync latest news and rewrite them in selected mood
+      summary: Fetch and store latest source news
       tags:
         - News
       parameters:
-        - in: query
-          name: mood
-          required: false
-          schema:
-            $ref: "#/components/schemas/Mood"
-          description: Mood used for rewriting
         - in: query
           name: limit
           required: false
@@ -221,7 +175,7 @@ paths:
             type: integer
             minimum: 1
             default: 10
-          description: Number of latest news items to fetch and rewrite
+          description: Number of latest source news items to fetch and store
       responses:
         "202":
           description: Sync job created
@@ -347,6 +301,9 @@ components:
         SourceURL:
           type: string
           format: uri
+        ImageURL:
+          type: string
+          format: uri
         PublishedAt:
           type: string
           format: date-time
@@ -359,3 +316,36 @@ components:
           type: string
         OriginalDigest:
           type: string
+    RewriteResult:
+      type: object
+      required:
+        - News
+        - Meta
+      properties:
+        News:
+          $ref: "#/components/schemas/News"
+        Meta:
+          $ref: "#/components/schemas/RewriteMeta"
+    RewriteMeta:
+      type: object
+      required:
+        - Source
+        - LLMRequests
+        - SavedLLMRequests
+        - DurationMs
+      properties:
+        Source:
+          type: string
+          enum:
+            - generated
+            - cache
+            - shared
+        LLMRequests:
+          type: integer
+          minimum: 0
+        SavedLLMRequests:
+          type: integer
+          minimum: 0
+        DurationMs:
+          type: integer
+          minimum: 0

@@ -1,16 +1,15 @@
 import { NewsCard } from "../components/NewsCard";
 import { NewsSkeletonGrid } from "../components/NewsSkeletonGrid";
-import { defaultMood } from "../constants/moods";
 
 export function NewsFeedPage({
   error,
   isBootstrapping,
   isLoading,
   isSyncing,
-  loadNews,
   news,
   onOpenNews,
   status,
+  syncFeedback,
   syncNews
 }) {
   const shouldShowStatus = isBootstrapping || isLoading || isSyncing || Boolean(error);
@@ -27,14 +26,12 @@ export function NewsFeedPage({
           </p>
         </div>
 
-        <div className="hero__panel">
-          <p className="hero__text hero__text--panel">Выбери новость из ленты и открой подробное сравнение текста.</p>
-
+        <div className="hero__controls">
           <div className="hero__actions">
             <button
               type="button"
               className="action-button"
-              onClick={() => void syncNews(defaultMood)}
+              onClick={() => void syncNews()}
               disabled={isSyncing}
             >
               {isSyncing ? "Загружаю..." : "Загрузить свежие новости"}
@@ -42,15 +39,10 @@ export function NewsFeedPage({
           </div>
 
           {shouldShowStatus ? <p className="status-text">{status}</p> : null}
+          {syncFeedback ? <p className="status-text status-text--result">{syncFeedback}</p> : null}
           {error ? <p className="error-text">{error}</p> : null}
         </div>
       </header>
-
-      <section className="feed-head">
-        <div>
-          <h2>Свежие новости</h2>
-        </div>
-      </section>
 
       <main className="news-grid news-grid--full">
         {isBootstrapping || isLoading ? (

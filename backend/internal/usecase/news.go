@@ -7,36 +7,46 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"cashfac-test/internal/domain"
 )
 
 type NewsUseCase struct {
-	repo     domain.NewsRepository
-	source   domain.SourceClient
-	rewriter domain.Rewriter
+	repo         domain.NewsRepository
+	source       domain.SourceClient
+	rewriter     domain.Rewriter
+	rewriteMu    sync.Mutex
+	rewriteCalls map[string]*rewriteCall
+}
+
+type rewriteCall struct {
+	done   chan struct{}
+	result domain.RewriteResult
+	err    error
 }
 
 type SyncProgressFunc func(processed, total int)
 
 func NewNewsUseCase(repo domain.NewsRepository, source domain.SourceClient, rewriter domain.Rewriter) *NewsUseCase {
 	return &NewsUseCase{
-		repo:     repo,
-		source:   source,
-		rewriter: rewriter,
+		repo:         repo,
+		source:       source,
+		rewriter:     rewriter,
+		rewriteCalls: make(map[string]*rewriteCall),
 	}
 }
 
-func (uc *NewsUseCase) Sync(ctx context.Context, limit int, mood domain.Mood) (int, error) {
-	return uc.sync(ctx, limit, mood, nil)
+func (uc *NewsUseCase) Sync(ctx context.Context, limit int) (int, error) {
+	return uc.sync(ctx, limit, nil)
 }
 
-func (uc *NewsUseCase) SyncWithProgress(ctx context.Context, limit int, mood domain.Mood, progressFn SyncProgressFunc) (int, error) {
-	return uc.sync(ctx, limit, mood, progressFn)
+func (uc *NewsUseCase) SyncWithProgress(ctx context.Context, limit int, progressFn SyncProgressFunc) (int, error) {
+	return uc.sync(ctx, limit, progressFn)
 }
 
-func (uc *NewsUseCase) sync(ctx context.Context, limit int, mood domain.Mood, progressFn SyncProgressFunc) (int, error) {
+func (uc *NewsUseCase) sync(ctx context.Context, limit int, progressFn SyncProgressFunc) (int, error) {
 	items, err := uc.source.FetchLatest(ctx, limit)
 	if err != nil {
 		return 0, fmt.Errorf("fetch latest news: %w", err)
@@ -49,30 +59,28 @@ func (uc *NewsUseCase) sync(ctx context.Context, limit int, mood domain.Mood, pr
 	for _, item := range items {
 		externalIDs = append(externalIDs, item.ExternalID)
 
-		rewritten, err := uc.rewriter.Rewrite(ctx, domain.RewriteRequest{
-			Title: item.Title,
-			Text:  item.Text,
-			Mood:  mood,
-		})
-		if err != nil {
-			return savedCount, fmt.Errorf("rewrite news %s: %w", item.ExternalID, err)
-		}
-
 		publishedAt, _ := time.Parse(time.RFC3339, item.PublishedRaw)
 		originalDigest := checksum(item.Text)
 		newsItem := domain.News{
-			ID:             checksum(item.ExternalID + string(mood)),
+			ID:             checksum(item.ExternalID + string(domain.MoodNeutral)),
 			Title:          item.Title,
 			OriginalText:   item.Text,
-			RewrittenText:  rewritten.Text,
-			Mood:           mood,
+			Mood:           domain.MoodNeutral,
 			SourceName:     item.SourceName,
 			SourceURL:      item.SourceURL,
+			ImageURL:       item.ImageURL,
 			PublishedAt:    publishedAt,
 			CreatedAt:      now,
 			ExternalID:     item.ExternalID,
-			FactChecksum:   rewritten.FactChecksum,
 			OriginalDigest: originalDigest,
+		}
+
+		existing, getErr := uc.repo.GetByExternalIDAndMood(ctx, item.ExternalID, domain.MoodNeutral)
+		if getErr == nil && existing.OriginalDigest == originalDigest {
+			newsItem.RewrittenText = existing.RewrittenText
+			newsItem.FactChecksum = existing.FactChecksum
+		} else if getErr != nil && !errors.Is(getErr, domain.ErrNewsNotFound) {
+			return savedCount, fmt.Errorf("get existing news %s: %w", item.ExternalID, getErr)
 		}
 
 		if err := uc.repo.Save(ctx, newsItem); err != nil {
@@ -85,10 +93,8 @@ func (uc *NewsUseCase) sync(ctx context.Context, limit int, mood domain.Mood, pr
 		}
 	}
 
-	if mood == domain.MoodNeutral {
-		if err := uc.repo.PruneByExternalIDs(ctx, externalIDs); err != nil {
-			return savedCount, fmt.Errorf("prune stale news: %w", err)
-		}
+	if err := uc.repo.PruneByExternalIDs(ctx, externalIDs); err != nil {
+		return savedCount, fmt.Errorf("prune stale news: %w", err)
 	}
 
 	return savedCount, nil
@@ -121,22 +127,71 @@ func (uc *NewsUseCase) GetByExternalID(ctx context.Context, externalID string, m
 	return item, nil
 }
 
-func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.News, error) {
+func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.RewriteResult, error) {
+	startedAt := time.Now()
+
 	if mood == "" {
 		mood = domain.MoodNeutral
 	}
+	if !mood.IsValid() {
+		return domain.RewriteResult{}, fmt.Errorf("unsupported mood %q", mood)
+	}
+
+	key := externalID + ":" + string(mood)
+	uc.rewriteMu.Lock()
+	if call, ok := uc.rewriteCalls[key]; ok {
+		uc.rewriteMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return domain.RewriteResult{}, ctx.Err()
+		case <-call.done:
+			result := call.result
+			result.Meta.Source = domain.RewriteSourceShared
+			result.Meta.LLMRequests = 0
+			result.Meta.SavedLLMRequests = 1
+			result.Meta.DurationMs = time.Since(startedAt).Milliseconds()
+			return result, call.err
+		}
+	}
+
+	call := &rewriteCall{done: make(chan struct{})}
+	uc.rewriteCalls[key] = call
+	uc.rewriteMu.Unlock()
+
+	call.result, call.err = uc.rewriteByExternalID(ctx, externalID, mood)
+	call.result.Meta.DurationMs = time.Since(startedAt).Milliseconds()
+
+	uc.rewriteMu.Lock()
+	close(call.done)
+	delete(uc.rewriteCalls, key)
+	uc.rewriteMu.Unlock()
+
+	return call.result, call.err
+}
+
+func (uc *NewsUseCase) rewriteByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.RewriteResult, error) {
+	baseItem, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, domain.MoodNeutral)
+	if errors.Is(err, domain.ErrNewsNotFound) {
+		baseItem, err = uc.repo.GetByExternalID(ctx, externalID)
+	}
+	if err != nil {
+		return domain.RewriteResult{}, fmt.Errorf("get base news by external id: %w", err)
+	}
+
+	originalDigest := checksum(baseItem.OriginalText)
 
 	item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, mood)
-	if err == nil && shouldReuseRewrite(item, mood) {
-		return item, nil
+	if err == nil && shouldReuseRewrite(item, mood, originalDigest) {
+		return domain.RewriteResult{
+			News: item,
+			Meta: domain.RewriteMeta{
+				Source:           domain.RewriteSourceCache,
+				SavedLLMRequests: 1,
+			},
+		}, nil
 	}
 	if err != nil && !errors.Is(err, domain.ErrNewsNotFound) {
-		return domain.News{}, fmt.Errorf("get news by external id and mood: %w", err)
-	}
-
-	baseItem, err := uc.repo.GetByExternalID(ctx, externalID)
-	if err != nil {
-		return domain.News{}, fmt.Errorf("get base news by external id: %w", err)
+		return domain.RewriteResult{}, fmt.Errorf("get news by external id and mood: %w", err)
 	}
 
 	rewritten, err := uc.rewriter.Rewrite(ctx, domain.RewriteRequest{
@@ -145,7 +200,7 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 		Mood:  mood,
 	})
 	if err != nil {
-		return domain.News{}, fmt.Errorf("rewrite news by external id %s: %w", externalID, err)
+		return domain.RewriteResult{}, fmt.Errorf("rewrite news by external id %s: %w", externalID, err)
 	}
 
 	item = domain.News{
@@ -156,18 +211,25 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 		Mood:           mood,
 		SourceName:     baseItem.SourceName,
 		SourceURL:      baseItem.SourceURL,
+		ImageURL:       baseItem.ImageURL,
 		PublishedAt:    baseItem.PublishedAt,
 		CreatedAt:      time.Now().UTC(),
 		ExternalID:     baseItem.ExternalID,
 		FactChecksum:   rewritten.FactChecksum,
-		OriginalDigest: baseItem.OriginalDigest,
+		OriginalDigest: originalDigest,
 	}
 
 	if err := uc.repo.Save(ctx, item); err != nil {
-		return domain.News{}, fmt.Errorf("save rewritten news by external id %s: %w", externalID, err)
+		return domain.RewriteResult{}, fmt.Errorf("save rewritten news by external id %s: %w", externalID, err)
 	}
 
-	return item, nil
+	return domain.RewriteResult{
+		News: item,
+		Meta: domain.RewriteMeta{
+			Source:      domain.RewriteSourceGenerated,
+			LLMRequests: 1,
+		},
+	}, nil
 }
 
 func checksum(value string) string {
@@ -175,9 +237,12 @@ func checksum(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func shouldReuseRewrite(item domain.News, mood domain.Mood) bool {
+func shouldReuseRewrite(item domain.News, mood domain.Mood, originalDigest string) bool {
 	trimmed := strings.TrimSpace(item.RewrittenText)
 	if trimmed == "" {
+		return false
+	}
+	if item.OriginalDigest != originalDigest {
 		return false
 	}
 
@@ -191,66 +256,9 @@ func shouldReuseRewrite(item domain.News, mood domain.Mood) bool {
 		return false
 	}
 
-	if tokenOverlapRatio(normalizedOriginal, normalizedRewrite) > 0.78 {
-		return false
-	}
-
 	return true
 }
 
 func normalizeRewriteText(value string) string {
 	return strings.Join(strings.Fields(strings.ToLower(value)), " ")
-}
-
-func tokenOverlapRatio(a, b string) float64 {
-	if a == "" || b == "" {
-		return 0
-	}
-
-	aTokens := strings.Fields(a)
-	bTokens := strings.Fields(b)
-	if len(aTokens) == 0 || len(bTokens) == 0 {
-		return 0
-	}
-
-	bagA := make(map[string]int, len(aTokens))
-	bagB := make(map[string]int, len(bTokens))
-	for _, token := range aTokens {
-		bagA[token]++
-	}
-	for _, token := range bTokens {
-		bagB[token]++
-	}
-
-	intersection := 0
-	union := 0
-	seen := make(map[string]struct{}, len(bagA)+len(bagB))
-
-	for token, countA := range bagA {
-		countB := bagB[token]
-		if countA < countB {
-			intersection += countA
-		} else {
-			intersection += countB
-		}
-		if countA > countB {
-			union += countA
-		} else {
-			union += countB
-		}
-		seen[token] = struct{}{}
-	}
-
-	for token, countB := range bagB {
-		if _, ok := seen[token]; ok {
-			continue
-		}
-		union += countB
-	}
-
-	if union == 0 {
-		return 0
-	}
-
-	return float64(intersection) / float64(union)
 }

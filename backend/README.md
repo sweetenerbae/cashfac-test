@@ -5,6 +5,7 @@ Go-сервис, который:
 - загружает реальные новости из The Guardian
 - сохраняет их в SQLite
 - отдает тексты в нескольких эмоциональных режимах
+- создает рерайты по запросу и кеширует их до изменения исходного текста
 - хранит только актуальную подборку без накопления старых новостей
 
 ## Структура
@@ -33,8 +34,8 @@ make run
 - `GET /api/v1/news?mood=neutral`
 - `GET /api/v1/news/{id}`
 - `GET /api/v1/news/by-external?external_id=...`
-- `GET /api/v1/news/rewrite?external_id=...&mood=...`
-- `POST /api/v1/news/sync?mood=neutral&limit=10`
+- `POST /api/v1/news/rewrite?external_id=...&mood=...`
+- `POST /api/v1/news/sync?limit=10`
 - `GET /api/v1/jobs/{id}`
 - `GET /docs`
 - `GET /openapi.yaml`

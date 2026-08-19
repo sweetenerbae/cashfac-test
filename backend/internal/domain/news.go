@@ -11,6 +11,15 @@ const (
 	MoodIronic  Mood = "ironic"
 )
 
+func (m Mood) IsValid() bool {
+	switch m {
+	case MoodNeutral, MoodHappy, MoodSad, MoodIronic:
+		return true
+	default:
+		return false
+	}
+}
+
 type News struct {
 	ID             string
 	Title          string
@@ -19,6 +28,7 @@ type News struct {
 	Mood           Mood
 	SourceName     string
 	SourceURL      string
+	ImageURL       string
 	PublishedAt    time.Time
 	CreatedAt      time.Time
 	ExternalID     string

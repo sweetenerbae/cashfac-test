@@ -8,6 +8,7 @@ type SourceItem struct {
 	Text         string
 	SourceName   string
 	SourceURL    string
+	ImageURL     string
 	PublishedRaw string
 }
 

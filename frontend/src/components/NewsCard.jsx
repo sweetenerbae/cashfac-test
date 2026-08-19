@@ -1,4 +1,6 @@
+import { NewsImage } from "./NewsImage";
 import { excerpt, formatDate } from "../utils/news";
+
 export function NewsCard({ isActive, item, onOpen }) {
   return (
     <article
@@ -13,6 +15,7 @@ export function NewsCard({ isActive, item, onOpen }) {
         }
       }}
     >
+      <NewsImage className="card__media" imageURL={item.ImageURL} title={item.Title} />
       <span className="card__source">{item.SourceName}</span>
       <h2>{item.Title}</h2>
       <p>{excerpt(item.OriginalText)}</p>

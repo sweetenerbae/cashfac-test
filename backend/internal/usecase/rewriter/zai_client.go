@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -36,25 +35,9 @@ func NewZAIClient(apiKey, baseURL, model string) *ZAIClient {
 }
 
 func (c *ZAIClient) Rewrite(ctx context.Context, request domain.RewriteRequest) (domain.RewriteResponse, error) {
-	text, err := c.completeRewrite(ctx, request, false)
+	text, err := c.completeRewrite(ctx, request, true)
 	if err != nil {
 		return domain.RewriteResponse{}, err
-	}
-
-	if isWeakRewrite(request, text) {
-		log.Printf("rewriter: weak rewrite detected for mood=%s title=%q, retry with stricter prompt", request.Mood, request.Title)
-		text, err = c.completeRewrite(ctx, request, true)
-		if err != nil {
-			return domain.RewriteResponse{}, err
-		}
-	}
-
-	if isWeakRewrite(request, text) {
-		log.Printf("rewriter: second weak rewrite detected for mood=%s title=%q, retry with final prompt", request.Mood, request.Title)
-		text, err = c.completeRewrite(ctx, request, true)
-		if err != nil {
-			return domain.RewriteResponse{}, err
-		}
 	}
 
 	if isWeakRewrite(request, text) {

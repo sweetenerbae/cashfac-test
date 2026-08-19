@@ -46,7 +46,7 @@ func (c *GuardianClient) FetchLatest(ctx context.Context, limit int) ([]domain.S
 	query.Set("page-size", fmt.Sprintf("%d", limit))
 	query.Set("order-by", "newest")
 	query.Set("type", "article")
-	query.Set("show-fields", "headline,trailText,bodyText")
+	query.Set("show-fields", "headline,trailText,bodyText,thumbnail")
 	requestURL.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
@@ -91,6 +91,7 @@ func (c *GuardianClient) FetchLatest(ctx context.Context, limit int) ([]domain.S
 			Text:         text,
 			SourceName:   "The Guardian",
 			SourceURL:    result.WebURL,
+			ImageURL:     strings.TrimSpace(result.Fields.Thumbnail),
 			PublishedRaw: result.WebPublicationDate,
 		})
 	}
@@ -113,5 +114,6 @@ type guardianResult struct {
 		Headline  string `json:"headline"`
 		TrailText string `json:"trailText"`
 		BodyText  string `json:"bodyText"`
+		Thumbnail string `json:"thumbnail"`
 	} `json:"fields"`
 }

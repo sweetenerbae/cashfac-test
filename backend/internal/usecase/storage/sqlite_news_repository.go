@@ -41,8 +41,8 @@ func (r *SQLiteNewsRepository) Save(ctx context.Context, item domain.News) error
 	const query = `
 		INSERT INTO news (
 			id, title, original_text, rewritten_text, mood, source_name, source_url,
-			published_at, created_at, external_id, fact_checksum, original_digest
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			image_url, published_at, created_at, external_id, fact_checksum, original_digest
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			title = excluded.title,
 			original_text = excluded.original_text,
@@ -50,6 +50,7 @@ func (r *SQLiteNewsRepository) Save(ctx context.Context, item domain.News) error
 			mood = excluded.mood,
 			source_name = excluded.source_name,
 			source_url = excluded.source_url,
+			image_url = excluded.image_url,
 			published_at = excluded.published_at,
 			created_at = excluded.created_at,
 			external_id = excluded.external_id,
@@ -67,6 +68,7 @@ func (r *SQLiteNewsRepository) Save(ctx context.Context, item domain.News) error
 		string(item.Mood),
 		item.SourceName,
 		item.SourceURL,
+		item.ImageURL,
 		item.PublishedAt.UTC().Format(sqliteTimeLayout),
 		item.CreatedAt.UTC().Format(sqliteTimeLayout),
 		item.ExternalID,
@@ -121,7 +123,7 @@ func (r *SQLiteNewsRepository) List(ctx context.Context, mood domain.Mood) ([]do
 	query := `
 		SELECT
 			id, title, original_text, rewritten_text, mood, source_name, source_url,
-			published_at, created_at, external_id, fact_checksum, original_digest
+			image_url, published_at, created_at, external_id, fact_checksum, original_digest
 		FROM news
 	`
 	args := []any{}
@@ -159,7 +161,7 @@ func (r *SQLiteNewsRepository) GetByID(ctx context.Context, id string) (domain.N
 	const query = `
 		SELECT
 			id, title, original_text, rewritten_text, mood, source_name, source_url,
-			published_at, created_at, external_id, fact_checksum, original_digest
+			image_url, published_at, created_at, external_id, fact_checksum, original_digest
 		FROM news
 		WHERE id = ?
 	`
@@ -180,7 +182,7 @@ func (r *SQLiteNewsRepository) GetByExternalID(ctx context.Context, externalID s
 	const query = `
 		SELECT
 			id, title, original_text, rewritten_text, mood, source_name, source_url,
-			published_at, created_at, external_id, fact_checksum, original_digest
+			image_url, published_at, created_at, external_id, fact_checksum, original_digest
 		FROM news
 		WHERE external_id = ?
 		ORDER BY created_at DESC
@@ -203,7 +205,7 @@ func (r *SQLiteNewsRepository) GetByExternalIDAndMood(ctx context.Context, exter
 	const query = `
 		SELECT
 			id, title, original_text, rewritten_text, mood, source_name, source_url,
-			published_at, created_at, external_id, fact_checksum, original_digest
+			image_url, published_at, created_at, external_id, fact_checksum, original_digest
 		FROM news
 		WHERE external_id = ? AND mood = ?
 		ORDER BY created_at DESC
@@ -236,6 +238,7 @@ func (r *SQLiteNewsRepository) migrate() error {
 			mood TEXT NOT NULL,
 			source_name TEXT NOT NULL,
 			source_url TEXT NOT NULL,
+			image_url TEXT NOT NULL DEFAULT '',
 			published_at TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			external_id TEXT NOT NULL,
@@ -252,6 +255,47 @@ func (r *SQLiteNewsRepository) migrate() error {
 
 	if _, err := r.db.Exec(query); err != nil {
 		return fmt.Errorf("migrate sqlite schema: %w", err)
+	}
+	if err := r.ensureImageURLColumn(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *SQLiteNewsRepository) ensureImageURLColumn() error {
+	rows, err := r.db.Query(`PRAGMA table_info(news)`)
+	if err != nil {
+		return fmt.Errorf("inspect sqlite news schema: %w", err)
+	}
+
+	found := false
+	for rows.Next() {
+		var (
+			columnID     int
+			name         string
+			columnType   string
+			notNull      int
+			defaultValue sql.NullString
+			primaryKey   int
+		)
+		if err := rows.Scan(&columnID, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			_ = rows.Close()
+			return fmt.Errorf("scan sqlite news schema: %w", err)
+		}
+		if name == "image_url" {
+			found = true
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("close sqlite schema rows: %w", err)
+	}
+	if found {
+		return nil
+	}
+
+	if _, err := r.db.Exec(`ALTER TABLE news ADD COLUMN image_url TEXT NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("add image_url to sqlite news: %w", err)
 	}
 
 	return nil
@@ -279,6 +323,7 @@ func scanNews(row scanner) (domain.News, error) {
 		&mood,
 		&item.SourceName,
 		&item.SourceURL,
+		&item.ImageURL,
 		&publishedAt,
 		&createdAt,
 		&item.ExternalID,

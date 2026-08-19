@@ -12,6 +12,7 @@ export function NewsArticlePage({
   onBack,
   rewriteFallbackMessage,
   selectedNews,
+  selectedRewriteMeta,
   setActiveMood,
   status
 }) {
@@ -56,7 +57,7 @@ export function NewsArticlePage({
                   setShowOriginal(false);
                   setActiveMood(mood.id);
                 }}
-                disabled={isLoading || isSyncing}
+                disabled={isLoading || isDetailLoading || isSyncing}
               >
                 <span className="mood__emoji" aria-hidden="true">
                   {mood.emoji}
@@ -68,7 +69,7 @@ export function NewsArticlePage({
               type="button"
               className={showOriginal ? "mood mood--secondary mood--active-alt" : "mood mood--secondary"}
               onClick={() => setShowOriginal(true)}
-              disabled={isLoading || isSyncing}
+              disabled={isLoading || isDetailLoading || isSyncing}
             >
               <span className="mood__emoji" aria-hidden="true">
                 ↺
@@ -87,6 +88,7 @@ export function NewsArticlePage({
           isLoading={isBootstrapping || isDetailLoading}
           rewriteFallbackMessage={rewriteFallbackMessage}
           selectedNews={selectedNews}
+          rewriteMeta={selectedRewriteMeta}
           showOriginal={showOriginal}
         />
       </main>

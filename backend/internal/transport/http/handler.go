@@ -76,7 +76,7 @@ func (h *Handler) handleGetNewsByExternalID(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handler) handleRewriteNews(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		return
 	}
@@ -91,8 +91,12 @@ func (h *Handler) handleRewriteNews(w http.ResponseWriter, r *http.Request) {
 	if mood == "" {
 		mood = domain.MoodNeutral
 	}
+	if !mood.IsValid() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unsupported mood"})
+		return
+	}
 
-	item, err := h.newsUseCase.RewriteByExternalID(r.Context(), externalID, mood)
+	result, err := h.newsUseCase.RewriteByExternalID(r.Context(), externalID, mood)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, domain.ErrNewsNotFound) {
@@ -102,7 +106,7 @@ func (h *Handler) handleRewriteNews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, item)
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -159,11 +163,6 @@ func (h *Handler) handleSyncNews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mood := domain.Mood(r.URL.Query().Get("mood"))
-	if mood == "" {
-		mood = domain.MoodNeutral
-	}
-
 	limit := 10
 	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 		parsedLimit, err := strconv.Atoi(rawLimit)
@@ -174,7 +173,7 @@ func (h *Handler) handleSyncNews(w http.ResponseWriter, r *http.Request) {
 		limit = parsedLimit
 	}
 
-	job, err := h.syncJobsUseCase.Start(r.Context(), limit, mood)
+	job, err := h.syncJobsUseCase.Start(r.Context(), limit)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return

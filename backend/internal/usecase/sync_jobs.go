@@ -11,8 +11,8 @@ import (
 )
 
 type SyncJobsUseCase struct {
-	jobs     domain.SyncJobRepository
-	newsUse  *NewsUseCase
+	jobs    domain.SyncJobRepository
+	newsUse *NewsUseCase
 }
 
 func NewSyncJobsUseCase(jobs domain.SyncJobRepository, newsUse *NewsUseCase) *SyncJobsUseCase {
@@ -22,12 +22,12 @@ func NewSyncJobsUseCase(jobs domain.SyncJobRepository, newsUse *NewsUseCase) *Sy
 	}
 }
 
-func (uc *SyncJobsUseCase) Start(ctx context.Context, limit int, mood domain.Mood) (domain.SyncJob, error) {
+func (uc *SyncJobsUseCase) Start(ctx context.Context, limit int) (domain.SyncJob, error) {
 	now := time.Now().UTC()
 	job := domain.SyncJob{
 		ID:        uuid.NewString(),
 		Status:    domain.JobStatusPending,
-		Mood:      mood,
+		Mood:      domain.MoodNeutral,
 		Limit:     limit,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -52,7 +52,7 @@ func (uc *SyncJobsUseCase) run(job domain.SyncJob) {
 	job.UpdatedAt = time.Now().UTC()
 	_ = uc.jobs.Save(ctx, job)
 
-	count, err := uc.newsUse.SyncWithProgress(ctx, job.Limit, job.Mood, func(processed, total int) {
+	count, err := uc.newsUse.SyncWithProgress(ctx, job.Limit, func(processed, total int) {
 		job.ProcessedCount = processed
 		job.TotalCount = total
 		job.UpdatedAt = time.Now().UTC()

@@ -1,19 +1,16 @@
 import { defaultMood, getMoodLabel } from "../constants/moods";
 import { formatDate } from "../utils/news";
+import { NewsImage } from "./NewsImage";
+import { RewriteMetrics } from "./RewriteMetrics";
 
-export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, selectedNews, showOriginal }) {
+export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, rewriteMeta, selectedNews, showOriginal }) {
   if (isLoading) {
     return (
       <div className="detail detail--article detail-skeleton" aria-hidden="true">
+        <div className="skeleton skeleton--detail-media" />
         <div className="skeleton skeleton--detail-title" />
         <div className="skeleton skeleton--detail-meta" />
         <div className="compare compare--detail-loading">
-          <section>
-            <div className="skeleton skeleton--section-title" />
-            <div className="skeleton skeleton--paragraph" />
-            <div className="skeleton skeleton--paragraph" />
-            <div className="skeleton skeleton--paragraph skeleton--paragraph-short" />
-          </section>
           <section>
             <div className="skeleton skeleton--section-title" />
             <div className="skeleton skeleton--paragraph" />
@@ -41,6 +38,12 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, sele
   return (
     <article className="detail detail--article">
       <div className="detail__summary">
+        <NewsImage
+          className="detail__media"
+          imageURL={selectedNews.ImageURL}
+          loading="eager"
+          title={selectedNews.Title}
+        />
         <div className="detail__summary-meta">
           <span className="detail__badge">Оригинальный материал</span>
           <span className="detail__divider" aria-hidden="true">
@@ -50,7 +53,11 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, sele
             {selectedNews.SourceName} · {formatDate(selectedNews.PublishedAt)}
           </span>
         </div>
-        <h3>{selectedNews.Title}</h3>
+        <h3>
+          <a className="detail__title-link" href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
+            {selectedNews.Title}
+          </a>
+        </h3>
         <p className="detail__lead">
           Здесь показана версия материала в выбранной подаче. Оригинальный текст можно открыть отдельной кнопкой,
           не теряя саму новость и факты.
@@ -60,6 +67,7 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, sele
             Читать оригинал на сайте источника
           </a>
         </div>
+        {!showOriginal ? <RewriteMetrics meta={rewriteMeta} /> : null}
       </div>
 
       <section className={showOriginal ? "compare__panel compare__panel--original" : "compare__panel compare__panel--rewrite"}>
@@ -67,7 +75,7 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, sele
           <span className="compare__eyebrow">{currentEyebrow}</span>
           <h3>{currentTitle}</h3>
         </div>
-        {!showOriginal && activeMood !== defaultMood && rewriteFallbackMessage ? (
+        {!showOriginal && rewriteFallbackMessage ? (
           <div className="rewrite-fallback">
             <p className="rewrite-fallback__title">Режим «{getMoodLabel(activeMood)}» пока недоступен для этой статьи</p>
             <p>{rewriteFallbackMessage}</p>
