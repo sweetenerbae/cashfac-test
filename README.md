@@ -2,25 +2,34 @@
 
 Сервис собирает реальные новости The Guardian и позволяет читать один материал в разных интонациях: нейтральной, радостной, грустной и ироничной. Исходная публикация, авторские факты и ссылка на источник остаются доступны на странице новости.
 
-## Быстрый запуск через Docker
+## Быстрый запуск без Make
 
-Понадобится только запущенный Docker Desktop.
+Для основного варианта запуска нужны Git и запущенный Docker Desktop. GNU Make устанавливать не обязательно.
 
-Команды одинаковы для macOS, Linux и Windows PowerShell. На Windows должен быть установлен GNU Make.
+Клонируйте проект:
 
-```bash
+```text
 git clone https://github.com/sweetenerbae/cashfac-test.git
 cd cashfac-test
-make setup
 ```
 
-Если `make` на Windows недоступен, файл окружения можно создать напрямую:
+### Windows PowerShell
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+notepad .env
+docker compose up --build -d
 ```
 
-Команда `make setup` создаст `.env` из безопасного шаблона и не перезапишет существующий файл. Добавьте в `.env` два ключа:
+### macOS и Linux
+
+```bash
+[ -f .env ] || cp .env.example .env
+${EDITOR:-nano} .env
+docker compose up --build -d
+```
+
+Перед запуском добавьте в `.env` два ключа:
 
 ```dotenv
 GUARDIAN_API_KEY=...
@@ -30,10 +39,11 @@ ZAI_API_KEY=...
 - `GUARDIAN_API_KEY` нужен для загрузки реальных публикаций через [The Guardian Open Platform](https://open-platform.theguardian.com/access/).
 - `ZAI_API_KEY` нужен для рерайта через [Z.ai](https://z.ai/).
 
-Запустите приложение:
+Если контейнеры были запущены до изменения `.env`, перезапустите их:
 
-```bash
-make docker-up
+```text
+docker compose down
+docker compose up --build -d
 ```
 
 После запуска доступны:
@@ -45,17 +55,15 @@ make docker-up
 | OpenAPI | http://localhost:8080/openapi.yaml |
 | Health check | http://localhost:8080/health |
 
-Посмотреть backend-логи:
+Основные команды Docker одинаковы в PowerShell, macOS и Linux:
 
-```bash
-make docker-logs
-```
-
-Остановить контейнеры:
-
-```bash
-make docker-down
-```
+| Действие | Команда |
+| --- | --- |
+| Собрать и запустить | `docker compose up --build -d` |
+| Посмотреть состояние | `docker compose ps` |
+| Смотреть логи | `docker compose logs -f` |
+| Остановить | `docker compose down` |
+| Остановить и удалить данные | `docker compose down -v` |
 
 SQLite хранится в Docker volume `news_data`, поэтому кэш рерайтов переживает обычный перезапуск контейнеров. Для полностью чистого запуска можно удалить контейнеры вместе с volume:
 
@@ -63,27 +71,63 @@ SQLite хранится в Docker volume `news_data`, поэтому кэш ре
 docker compose down -v
 ```
 
+## Запуск через Make
+
+Makefile содержит короткие обёртки над теми же Docker-командами. Этот способ необязателен.
+
+На macOS и Linux обычно достаточно установленного `make`. На Windows команда `make --version` должна выполняться из PowerShell; если GNU Make не установлен или не добавлен в `PATH`, используйте запуск без Make выше.
+
+```text
+make setup
+make docker-up
+```
+
+`make setup` создаёт `.env` из `.env.example` и не перезаписывает существующий файл. После первого вызова заполните ключи в `.env`, затем запускайте `make docker-up`.
+
+Управление контейнерами через Make:
+
+```text
+make docker-status
+make docker-logs
+make docker-down
+```
+
 ## Локальный запуск
 
 Для запуска без Docker нужны Go 1.25 и Node.js 20 или новее.
 
-Подготовьте `.env`:
+На macOS или Linux загрузите переменные окружения и запустите backend:
 
 ```bash
-make setup
+[ -f .env ] || cp .env.example .env
+${EDITOR:-nano} .env
+set -a
+. ./.env
+set +a
+cd backend
+go run ./cmd/api
 ```
 
-Backend запускается из корня проекта:
+На Windows PowerShell:
 
-```bash
-make run
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+notepad .env
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
+        [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), 'Process')
+    }
+}
+Set-Location backend
+go run ./cmd/api
 ```
 
 Во втором терминале запустите frontend:
 
-```bash
-make frontend-install
-make frontend-dev
+```text
+cd frontend
+npm install
+npm run dev
 ```
 
 Локальные адреса:
@@ -144,7 +188,7 @@ Backend разделён на слои:
 - `internal/usecase/rewriter` — интеграция с Z.ai и контроль качества ответа;
 - `internal/usecase/storage` — реализации хранилища на SQLite и in-memory;
 - `internal/transport/http` — HTTP handlers, middleware, Swagger UI и OpenAPI;
-- `internal/platform/logger` — структурированные цветные логи без вывода ключей, prompt и текстов статей;
+- `internal/platform/logger` — структурированные логи без вывода ключей, prompt и текстов статей;
 - `internal/app` — сборка зависимостей и запуск HTTP-сервера.
 
 Frontend также разделён по ответственности:
@@ -183,28 +227,54 @@ Frontend также разделён по ответственности:
 
 Без `GUARDIAN_API_KEY` backend запускается со stub-источником, а без `ZAI_API_KEY` — с отключённым рерайтом. Для полноценной проверки задания нужны оба ключа.
 
-## Команды
+## Проверки проекта
 
-```bash
-make help              # список основных команд
-make docker-up         # собрать и запустить весь проект
-make docker-logs       # смотреть логи контейнеров
-make docker-status     # проверить состояние контейнеров
-make docker-down       # остановить контейнеры
-make check             # backend tests + frontend production build
-make fmt               # форматировать Go-код
+Без Make:
+
+```text
+cd backend
+go test ./...
+cd ../frontend
+npm ci
+npm run build
 ```
+
+Через Make из корня проекта:
+
+```text
+make check
+```
+
+Список остальных Make-команд доступен через `make help`.
 
 ## Возможные проблемы при запуске
 
-`Cannot connect to the Docker daemon` означает, что Docker Desktop не запущен. После его запуска повторите `make docker-up`.
+`Cannot connect to the Docker daemon` означает, что Docker Desktop не запущен. Запустите Docker Desktop, дождитесь готовности engine и повторите `docker compose up --build -d` или `make docker-up`.
 
-Если порт `8080` занят, найдите процесс:
+Если PowerShell не находит `make`, это не блокирует запуск проекта. Используйте прямые команды `docker compose` из раздела «Быстрый запуск без Make».
+
+Если PowerShell не находит `.env.example`, проверьте текущую папку:
+
+```powershell
+Get-Location
+Get-ChildItem -Force .env*
+```
+
+Команды подготовки окружения нужно выполнять в корне `cashfac-test`, где находятся `docker-compose.yml`, `Makefile` и `.env.example`.
+
+Если порт `8080` занят, найдите процесс на Windows:
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue |
+    Select-Object LocalAddress, LocalPort, OwningProcess
+```
+
+На macOS или Linux:
 
 ```bash
 lsof -nP -iTCP:8080 -sTCP:LISTEN
 ```
 
-Остановите ранее запущенную локальную копию проекта или контейнер через `make docker-down`, затем повторите запуск.
+Остановите ранее запущенную локальную копию проекта или контейнер через `docker compose down` либо `make docker-down`, затем повторите запуск.
 
-Если лента содержит stub-данные, проверьте `GUARDIAN_API_KEY` и перезапустите сервисы. Если исходник открывается, но интонация не создаётся, проверьте `ZAI_API_KEY` и сообщения `ERROR LLM` через `make docker-logs`.
+Если лента содержит stub-данные, проверьте `GUARDIAN_API_KEY` и перезапустите сервисы. Если исходник открывается, но интонация не создаётся, проверьте `ZAI_API_KEY` и сообщения `ERROR LLM` через `docker compose logs -f backend` или `make docker-logs`.
