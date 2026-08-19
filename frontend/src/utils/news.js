@@ -3,10 +3,15 @@ export function formatDate(value) {
     return "";
   }
 
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Дата не указана";
+  }
+
   return new Intl.DateTimeFormat("ru-RU", {
     dateStyle: "medium",
     timeStyle: "short"
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function excerpt(value, maxLength = 220) {

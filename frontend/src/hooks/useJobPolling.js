@@ -4,10 +4,7 @@ import { SYNC_POLL_INTERVAL } from "./newsPageConstants";
 
 export function useJobPolling(jobID, handlers) {
   const handlersRef = useRef(handlers);
-
-  useEffect(() => {
-    handlersRef.current = handlers;
-  }, [handlers]);
+  handlersRef.current = handlers;
 
   useEffect(() => {
     if (!jobID) {
@@ -15,6 +12,7 @@ export function useJobPolling(jobID, handlers) {
     }
 
     let cancelled = false;
+    let timeoutID;
 
     async function pollJob() {
       try {
@@ -23,22 +21,22 @@ export function useJobPolling(jobID, handlers) {
           return;
         }
 
-        handlersRef.current?.onUpdate?.(job);
+        await handlersRef.current?.onUpdate?.(job);
+        if (!cancelled && (job.Status === "pending" || job.Status === "running")) {
+          timeoutID = window.setTimeout(pollJob, SYNC_POLL_INTERVAL);
+        }
       } catch (error) {
         if (!cancelled) {
-          handlersRef.current?.onError?.(error);
+          await handlersRef.current?.onError?.(error);
         }
       }
     }
 
     void pollJob();
-    const intervalID = window.setInterval(() => {
-      void pollJob();
-    }, SYNC_POLL_INTERVAL);
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalID);
+      window.clearTimeout(timeoutID);
     };
   }, [jobID]);
 }

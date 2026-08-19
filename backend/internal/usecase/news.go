@@ -59,6 +59,9 @@ func (uc *NewsUseCase) sync(ctx context.Context, limit int, progressFn SyncProgr
 		logger.F("items", len(items)),
 		logger.F("duration", logger.Duration(time.Since(startedAt))),
 	)
+	if len(items) == 0 {
+		return 0, fmt.Errorf("source returned no news; existing selection was kept")
+	}
 
 	now := time.Now().UTC()
 	savedCount := 0
@@ -67,7 +70,10 @@ func (uc *NewsUseCase) sync(ctx context.Context, limit int, progressFn SyncProgr
 	for _, item := range items {
 		externalIDs = append(externalIDs, item.ExternalID)
 
-		publishedAt, _ := time.Parse(time.RFC3339, item.PublishedRaw)
+		publishedAt, err := time.Parse(time.RFC3339, item.PublishedRaw)
+		if err != nil {
+			return savedCount, fmt.Errorf("parse publication date for news %s: %w", item.ExternalID, err)
+		}
 		originalDigest := checksum(item.Text)
 		newsItem := domain.News{
 			ID:             checksum(item.ExternalID + string(domain.MoodNeutral)),
@@ -119,15 +125,21 @@ func (uc *NewsUseCase) Get(ctx context.Context, id string) (domain.News, error) 
 func (uc *NewsUseCase) GetByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.News, error) {
 	if mood != "" {
 		item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, mood)
-		if err == nil {
-			return item, nil
-		}
-		if !errors.Is(err, domain.ErrNewsNotFound) {
+		if err != nil {
 			return domain.News{}, fmt.Errorf("get news by external id and mood: %w", err)
 		}
+		return item, nil
 	}
 
-	item, err := uc.repo.GetByExternalID(ctx, externalID)
+	item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, domain.MoodNeutral)
+	if err == nil {
+		return item, nil
+	}
+	if !errors.Is(err, domain.ErrNewsNotFound) {
+		return domain.News{}, fmt.Errorf("get neutral news by external id: %w", err)
+	}
+
+	item, err = uc.repo.GetByExternalID(ctx, externalID)
 	if err != nil {
 		return domain.News{}, fmt.Errorf("get news by external id: %w", err)
 	}
@@ -220,6 +232,13 @@ func (uc *NewsUseCase) rewriteByExternalID(ctx context.Context, externalID strin
 
 	item, err := uc.repo.GetByExternalIDAndMood(ctx, externalID, mood)
 	if err == nil && shouldReuseRewrite(item, mood, originalDigest) {
+		item.Title = baseItem.Title
+		item.OriginalText = baseItem.OriginalText
+		item.SourceName = baseItem.SourceName
+		item.SourceURL = baseItem.SourceURL
+		item.ImageURL = baseItem.ImageURL
+		item.PublishedAt = baseItem.PublishedAt
+		item.OriginalDigest = originalDigest
 		return domain.RewriteResult{
 			News: item,
 			Meta: domain.RewriteMeta{

@@ -21,7 +21,13 @@ export function NewsCard({ isActive, item, onOpen }) {
       <p>{excerpt(item.OriginalText)}</p>
       <div className="card__meta">
         <span>{formatDate(item.PublishedAt)}</span>
-        <a href={item.SourceURL} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+        <a
+          href={item.SourceURL}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
           Открыть оригинальный источник
         </a>
       </div>

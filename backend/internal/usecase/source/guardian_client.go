@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,6 +48,7 @@ func (c *GuardianClient) FetchLatest(ctx context.Context, limit int) ([]domain.S
 	query.Set("order-by", "newest")
 	query.Set("type", "article")
 	query.Set("show-fields", "headline,trailText,bodyText,thumbnail")
+	query.Set("show-elements", "image")
 	requestURL.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
@@ -91,7 +93,7 @@ func (c *GuardianClient) FetchLatest(ctx context.Context, limit int) ([]domain.S
 			Text:         text,
 			SourceName:   "The Guardian",
 			SourceURL:    result.WebURL,
-			ImageURL:     strings.TrimSpace(result.Fields.Thumbnail),
+			ImageURL:     bestImageURL(result),
 			PublishedRaw: result.WebPublicationDate,
 		})
 	}
@@ -116,4 +118,67 @@ type guardianResult struct {
 		BodyText  string `json:"bodyText"`
 		Thumbnail string `json:"thumbnail"`
 	} `json:"fields"`
+	Elements []guardianElement `json:"elements"`
+}
+
+type guardianElement struct {
+	Type   string          `json:"type"`
+	Assets []guardianAsset `json:"assets"`
+}
+
+type guardianAsset struct {
+	File     string         `json:"file"`
+	TypeData map[string]any `json:"typeData"`
+}
+
+func bestImageURL(result guardianResult) string {
+	const targetWidth = 1200
+
+	fallback := strings.TrimSpace(result.Fields.Thumbnail)
+	bestAboveURL := ""
+	bestAboveWidth := int(^uint(0) >> 1)
+	bestBelowURL := ""
+	bestBelowWidth := 0
+
+	for _, element := range result.Elements {
+		if element.Type != "image" {
+			continue
+		}
+		for _, asset := range element.Assets {
+			assetURL := strings.TrimSpace(asset.File)
+			width := guardianAssetWidth(asset.TypeData["width"])
+			if assetURL == "" || width <= 0 {
+				continue
+			}
+
+			if width >= targetWidth && width < bestAboveWidth {
+				bestAboveURL = assetURL
+				bestAboveWidth = width
+			}
+			if width < targetWidth && width > bestBelowWidth {
+				bestBelowURL = assetURL
+				bestBelowWidth = width
+			}
+		}
+	}
+
+	if bestAboveURL != "" {
+		return bestAboveURL
+	}
+	if bestBelowURL != "" {
+		return bestBelowURL
+	}
+	return fallback
+}
+
+func guardianAssetWidth(value any) int {
+	switch width := value.(type) {
+	case float64:
+		return int(width)
+	case string:
+		parsed, _ := strconv.Atoi(width)
+		return parsed
+	default:
+		return 0
+	}
 }

@@ -15,10 +15,25 @@ async function parseResponse(response) {
   return payload;
 }
 
+const inFlightGetRequests = new Map();
+
 export const apiClient = {
   async get(path) {
-    const response = await fetch(path);
-    return parseResponse(response);
+    const existingRequest = inFlightGetRequests.get(path);
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const request = fetch(path).then(parseResponse);
+    inFlightGetRequests.set(path, request);
+
+    try {
+      return await request;
+    } finally {
+      if (inFlightGetRequests.get(path) === request) {
+        inFlightGetRequests.delete(path);
+      }
+    }
   },
 
   async post(path, options = {}) {

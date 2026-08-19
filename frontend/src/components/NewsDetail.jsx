@@ -7,9 +7,13 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, rewr
   if (isLoading) {
     return (
       <div className="detail detail--article detail-skeleton" aria-hidden="true">
-        <div className="skeleton skeleton--detail-media" />
-        <div className="skeleton skeleton--detail-title" />
-        <div className="skeleton skeleton--detail-meta" />
+        <div className="detail__header detail__header--skeleton">
+          <div className="detail__summary">
+            <div className="skeleton skeleton--detail-title" />
+            <div className="skeleton skeleton--detail-meta" />
+          </div>
+          <div className="skeleton skeleton--detail-media" />
+        </div>
         <div className="compare compare--detail-loading">
           <section>
             <div className="skeleton skeleton--section-title" />
@@ -37,37 +41,39 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, rewr
 
   return (
     <article className="detail detail--article">
-      <NewsImage
-        className="detail__media"
-        imageURL={selectedNews.ImageURL}
-        loading="eager"
-        title={selectedNews.Title}
-      />
-      <div className="detail__summary">
-        <div className="detail__summary-meta">
-          <span className="detail__badge">Оригинальный материал</span>
-          <span className="detail__divider" aria-hidden="true">
-            /
-          </span>
-          <span className="detail__source-line">
-            {selectedNews.SourceName} · {formatDate(selectedNews.PublishedAt)}
-          </span>
+      <div className="detail__header">
+        <div className="detail__summary">
+          <div className="detail__summary-meta">
+            <span className="detail__badge">Оригинальный материал</span>
+            <span className="detail__divider" aria-hidden="true">
+              /
+            </span>
+            <span className="detail__source-line">
+              {selectedNews.SourceName} · {formatDate(selectedNews.PublishedAt)}
+            </span>
+          </div>
+          <h3>
+            <a className="detail__title-link" href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
+              {selectedNews.Title}
+            </a>
+          </h3>
+          <p className="detail__lead">
+            Здесь показана версия материала в выбранной подаче. Оригинальный текст можно открыть отдельной кнопкой,
+            не теряя саму новость и факты.
+          </p>
+          <div className="detail__actions">
+            <a href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
+              Читать оригинал на сайте источника
+            </a>
+          </div>
+          {!showOriginal ? <RewriteMetrics meta={rewriteMeta} /> : null}
         </div>
-        <h3>
-          <a className="detail__title-link" href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
-            {selectedNews.Title}
-          </a>
-        </h3>
-        <p className="detail__lead">
-          Здесь показана версия материала в выбранной подаче. Оригинальный текст можно открыть отдельной кнопкой,
-          не теряя саму новость и факты.
-        </p>
-        <div className="detail__actions">
-          <a href={selectedNews.SourceURL} target="_blank" rel="noreferrer">
-            Читать оригинал на сайте источника
-          </a>
-        </div>
-        {!showOriginal ? <RewriteMetrics meta={rewriteMeta} /> : null}
+        <NewsImage
+          className="detail__media"
+          imageURL={selectedNews.ImageURL}
+          loading="eager"
+          title={selectedNews.Title}
+        />
       </div>
 
       <section className={showOriginal ? "compare__panel compare__panel--original" : "compare__panel compare__panel--rewrite"}>

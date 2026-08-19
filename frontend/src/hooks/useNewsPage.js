@@ -1,26 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getNews, getNewsByExternalID, rewriteNews, startNewsSync } from "../api/news";
 import { defaultMood, getMoodLabel } from "../constants/moods";
 import { DEFAULT_SYNC_LIMIT, INITIAL_STATUS, INITIAL_SYNC_LIMIT } from "./newsPageConstants";
 import { useJobPolling } from "./useJobPolling";
 
 function findSelectedNews(news, moodNews, activeMood, selectedExternalID) {
+  if (!selectedExternalID) {
+    return null;
+  }
+
   const baseVersion = news.find((item) => item.ExternalID === selectedExternalID);
   const activeMoodItems = moodNews[activeMood] || [];
   const moodVersion = activeMoodItems.find((item) => item.ExternalID === selectedExternalID);
   if (moodVersion && (!baseVersion || moodVersion.OriginalDigest === baseVersion.OriginalDigest)) {
-    return moodVersion;
+    return baseVersion?.ImageURL ? { ...moodVersion, ImageURL: baseVersion.ImageURL } : moodVersion;
   }
 
   if (baseVersion) {
     return baseVersion;
   }
 
-  if (activeMoodItems.length > 0) {
-    return activeMoodItems[0];
-  }
-
-  return news[0] || null;
+  return null;
 }
 
 function hasRewrite(item, baseItem) {
@@ -48,14 +48,43 @@ export function useNewsPage() {
   const [activeJobID, setActiveJobID] = useState("");
   const [syncFeedback, setSyncFeedback] = useState("");
   const [rewriteMeta, setRewriteMeta] = useState({});
+  const detailRequestIDRef = useRef(0);
+  const syncInProgressRef = useRef(false);
 
   const selectedBaseNews = news.find((item) => item.ExternalID === selectedExternalID) || null;
   const selectedNews = findSelectedNews(news, moodNews, activeMood, selectedExternalID);
   const selectedRewriteMeta = rewriteMeta[rewriteKey(selectedExternalID, activeMood)] || null;
 
+  function beginDetailRequest() {
+    const requestID = detailRequestIDRef.current + 1;
+    detailRequestIDRef.current = requestID;
+    setIsDetailLoading(true);
+    return requestID;
+  }
+
+  function isCurrentDetailRequest(requestID) {
+    return detailRequestIDRef.current === requestID;
+  }
+
+  function finishDetailRequest(requestID) {
+    if (isCurrentDetailRequest(requestID)) {
+      setIsDetailLoading(false);
+    }
+  }
+
+  function handleSelectedIDChange(externalID) {
+    detailRequestIDRef.current += 1;
+    setIsDetailLoading(false);
+    setError("");
+    setRewriteFallbackMessage("");
+    setSelectedExternalID(externalID);
+  }
+
   function handleMoodChange(mood) {
     const cachedItem = moodNews[mood]?.find((item) => item.ExternalID === selectedExternalID);
 
+    detailRequestIDRef.current += 1;
+    setIsDetailLoading(false);
     setActiveMood(mood);
     setError("");
     setRewriteFallbackMessage("");
@@ -86,7 +115,7 @@ export function useNewsPage() {
       return null;
     }
 
-    setIsDetailLoading(true);
+    const requestID = beginDetailRequest();
     setError("");
     setRewriteFallbackMessage("");
 
@@ -110,14 +139,18 @@ export function useNewsPage() {
           [rewriteKey(externalID, mood)]: result.Meta
         }));
       }
-      setStatus(`Новости в режиме «${getMoodLabel(mood)}» готовы.`);
+      if (isCurrentDetailRequest(requestID)) {
+        setStatus(`Новости в режиме «${getMoodLabel(mood)}» готовы.`);
+      }
       return item;
     } catch (loadError) {
-      setError(loadError.message);
-      setRewriteFallbackMessage(buildRewriteFallbackMessage(mood, loadError.message));
+      if (isCurrentDetailRequest(requestID)) {
+        setError(loadError.message);
+        setRewriteFallbackMessage(buildRewriteFallbackMessage(mood, loadError.message));
+      }
       return null;
     } finally {
-      setIsDetailLoading(false);
+      finishDetailRequest(requestID);
     }
   }
 
@@ -131,12 +164,16 @@ export function useNewsPage() {
       return existingItem;
     }
 
-    setIsDetailLoading(true);
+    const requestID = beginDetailRequest();
     setError("");
     setRewriteFallbackMessage("");
 
     try {
       const item = await getNewsByExternalID(externalID);
+      if (!isCurrentDetailRequest(requestID)) {
+        return item;
+      }
+
       setNews((current) => {
         if (current.some((newsItem) => newsItem.ExternalID === externalID)) {
           return current;
@@ -155,24 +192,27 @@ export function useNewsPage() {
           [defaultMood]: [item, ...neutralItems]
         };
       });
+      if (isCurrentDetailRequest(requestID)) {
+        setError("");
+      }
       return item;
     } catch (loadError) {
-      setError(loadError.message);
+      if (isCurrentDetailRequest(requestID)) {
+        setError(loadError.message);
+      }
       return null;
     } finally {
-      setIsDetailLoading(false);
+      finishDetailRequest(requestID);
     }
   }
 
   async function loadNews(mood, options = {}) {
-    const { replaceList = false } = options;
+    const { clearError = true } = options;
 
-    if (replaceList) {
-      setIsLoading(true);
-    } else {
-      setIsDetailLoading(true);
+    setIsLoading(true);
+    if (clearError) {
+      setError("");
     }
-    setError("");
 
     try {
       const items = await getNews(mood);
@@ -181,16 +221,14 @@ export function useNewsPage() {
         [mood]: items
       }));
 
-      if (replaceList) {
-        setNews(items);
-        setSelectedExternalID((current) => {
-          if (items.some((item) => item.ExternalID === current)) {
-            return current;
-          }
+      setNews(items);
+      setSelectedExternalID((current) => {
+        if (items.some((item) => item.ExternalID === current)) {
+          return current;
+        }
 
-          return items[0]?.ExternalID || "";
-        });
-      }
+        return items[0]?.ExternalID || "";
+      });
 
       if (items.length === 0) {
         setStatus("Пока здесь пусто.");
@@ -204,13 +242,17 @@ export function useNewsPage() {
       return null;
     } finally {
       setIsLoading(false);
-      setIsDetailLoading(false);
     }
   }
 
   async function syncNews(options = {}) {
     const { limit = DEFAULT_SYNC_LIMIT, silent = false } = options;
 
+    if (syncInProgressRef.current) {
+      return;
+    }
+
+    syncInProgressRef.current = true;
     setIsSyncing(true);
     setError("");
     setSyncFeedback("");
@@ -223,6 +265,8 @@ export function useNewsPage() {
       }
     } catch (syncError) {
       setError(syncError.message);
+      setIsSyncing(false);
+      syncInProgressRef.current = false;
     }
   }
 
@@ -237,19 +281,21 @@ export function useNewsPage() {
       }
 
       if (job.Status === "failed") {
-        setError(job.Error || "Синхронизация завершилась с ошибкой.");
+        const failureMessage = job.Error || "Синхронизация завершилась с ошибкой.";
+        setError(failureMessage);
         setStatus(`Не удалось закончить загрузку. Успела обработаться ${processed} из ${total}.`);
-        setIsSyncing(false);
         setActiveJobID("");
-        await loadNews(defaultMood, { replaceList: true });
+        await loadNews(defaultMood, { clearError: false });
+        setError(failureMessage);
+        setIsSyncing(false);
+        syncInProgressRef.current = false;
         return;
       }
 
       if (job.Status === "completed") {
         const previousExternalIDs = new Set(news.map((item) => item.ExternalID));
-        setIsSyncing(false);
         setActiveJobID("");
-        const items = await loadNews(defaultMood, { replaceList: true });
+        const items = await loadNews(defaultMood);
         if (items) {
           const addedCount = items.filter((item) => !previousExternalIDs.has(item.ExternalID)).length;
           setSyncFeedback(
@@ -258,11 +304,17 @@ export function useNewsPage() {
               : formatAddedNewsMessage(addedCount)
           );
         }
+        setIsSyncing(false);
+        syncInProgressRef.current = false;
+        return;
       }
+
+      throw new Error(`Неизвестный статус синхронизации: ${job.Status}`);
     },
     onError: (pollError) => {
       setError(pollError.message);
       setIsSyncing(false);
+      syncInProgressRef.current = false;
       setActiveJobID("");
     }
   });
@@ -313,7 +365,7 @@ export function useNewsPage() {
         });
         setNews(items);
         setSelectedExternalID((current) => {
-          if (current && items.some((item) => item.ExternalID === current)) {
+          if (current) {
             return current;
           }
 
@@ -338,14 +390,6 @@ export function useNewsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!selectedExternalID || selectedNews) {
-      return;
-    }
-
-    setError("Эта новость пока недоступна в локальной подборке.");
-  }, [selectedExternalID, selectedNews]);
-
   return {
     activeMood,
     error,
@@ -357,7 +401,7 @@ export function useNewsPage() {
     selectedNews,
     selectedRewriteMeta,
     setActiveMood: handleMoodChange,
-    setSelectedId: setSelectedExternalID,
+    setSelectedId: handleSelectedIDChange,
     status,
     syncFeedback,
     rewriteFallbackMessage,

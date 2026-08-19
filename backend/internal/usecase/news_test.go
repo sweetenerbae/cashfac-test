@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -125,6 +126,71 @@ func TestNewsUseCaseSyncPrunesStaleNews(t *testing.T) {
 	}
 	if len(happyItems) != 0 {
 		t.Fatalf("expected stale mood variants to be pruned, got %#v", happyItems)
+	}
+}
+
+func TestNewsUseCaseSyncKeepsExistingNewsWhenSourceReturnsEmpty(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := storage.NewInMemoryNewsRepository()
+	existing := makeNewsItem("news-1", domain.MoodNeutral, "Original story text.", "")
+	if err := repo.Save(ctx, existing); err != nil {
+		t.Fatalf("save existing item: %v", err)
+	}
+
+	uc := NewNewsUseCase(repo, &fakeSource{batches: [][]domain.SourceItem{{}}}, &fakeRewriter{})
+	if _, err := uc.Sync(ctx, 10); err == nil {
+		t.Fatal("expected empty source response to fail")
+	}
+
+	item, err := repo.GetByID(ctx, existing.ID)
+	if err != nil {
+		t.Fatalf("expected existing item to be preserved: %v", err)
+	}
+	if item.ExternalID != existing.ExternalID {
+		t.Fatalf("expected existing item %q, got %q", existing.ExternalID, item.ExternalID)
+	}
+}
+
+func TestNewsUseCaseGetByExternalIDDefaultsToNeutralVersion(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := storage.NewInMemoryNewsRepository()
+	neutral := makeNewsItem("news-1", domain.MoodNeutral, "Original story text.", "A neutral rewrite.")
+	sad := makeNewsItem("news-1", domain.MoodSad, "Original story text.", "A sad rewrite.")
+	sad.CreatedAt = neutral.CreatedAt.Add(time.Hour)
+	if err := repo.Save(ctx, neutral); err != nil {
+		t.Fatalf("save neutral item: %v", err)
+	}
+	if err := repo.Save(ctx, sad); err != nil {
+		t.Fatalf("save sad item: %v", err)
+	}
+
+	uc := NewNewsUseCase(repo, &fakeSource{}, &fakeRewriter{})
+	item, err := uc.GetByExternalID(ctx, "news-1", "")
+	if err != nil {
+		t.Fatalf("get news by external id: %v", err)
+	}
+	if item.Mood != domain.MoodNeutral {
+		t.Fatalf("expected neutral version, got %q", item.Mood)
+	}
+}
+
+func TestNewsUseCaseGetByExternalIDDoesNotFallbackForRequestedMood(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := storage.NewInMemoryNewsRepository()
+	neutral := makeNewsItem("news-1", domain.MoodNeutral, "Original story text.", "A neutral rewrite.")
+	if err := repo.Save(ctx, neutral); err != nil {
+		t.Fatalf("save neutral item: %v", err)
+	}
+
+	uc := NewNewsUseCase(repo, &fakeSource{}, &fakeRewriter{})
+	if _, err := uc.GetByExternalID(ctx, "news-1", domain.MoodSad); !errors.Is(err, domain.ErrNewsNotFound) {
+		t.Fatalf("expected requested mood to be missing, got %v", err)
 	}
 }
 

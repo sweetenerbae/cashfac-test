@@ -8,10 +8,19 @@ const articlePathPrefix = "/news/";
 function getRoute(pathname) {
   if (pathname.startsWith(articlePathPrefix)) {
     const rawExternalID = pathname.slice(articlePathPrefix.length);
-    return {
-      name: "article",
-      externalID: decodeURIComponent(rawExternalID)
-    };
+    if (rawExternalID) {
+      try {
+        const externalID = decodeURIComponent(rawExternalID);
+        if (externalID) {
+          return {
+            name: "article",
+            externalID
+          };
+        }
+      } catch {
+        return { name: "feed", externalID: "" };
+      }
+    }
   }
 
   return {
@@ -36,11 +45,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (route.name !== "article" || !route.externalID) {
-      return;
-    }
-
-    newsPage.setSelectedId(route.externalID);
+    newsPage.setSelectedId(route.name === "article" ? route.externalID : "");
   }, [route.name, route.externalID]);
 
   function navigate(pathname) {
@@ -53,12 +58,10 @@ export default function App() {
   }
 
   function openNews(externalID) {
-    newsPage.setSelectedId(externalID);
     navigate(`${articlePathPrefix}${encodeURIComponent(externalID)}`);
   }
 
   function openFeed() {
-    newsPage.setSelectedId("");
     navigate("/");
   }
 

@@ -61,6 +61,10 @@ func (h *Handler) handleGetNewsByExternalID(w http.ResponseWriter, r *http.Reque
 	}
 
 	mood := domain.Mood(r.URL.Query().Get("mood"))
+	if mood != "" && !mood.IsValid() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unsupported mood"})
+		return
+	}
 
 	item, err := h.newsUseCase.GetByExternalID(r.Context(), externalID, mood)
 	if err != nil {
@@ -189,6 +193,10 @@ func (h *Handler) handleListNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mood := domain.Mood(r.URL.Query().Get("mood"))
+	if mood != "" && !mood.IsValid() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unsupported mood"})
+		return
+	}
 
 	items, err := h.newsUseCase.List(r.Context(), mood)
 	if err != nil {

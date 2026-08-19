@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,8 +13,10 @@ import (
 )
 
 type SyncJobsUseCase struct {
-	jobs    domain.SyncJobRepository
-	newsUse *NewsUseCase
+	jobs        domain.SyncJobRepository
+	newsUse     *NewsUseCase
+	mu          sync.Mutex
+	activeJobID string
 }
 
 func NewSyncJobsUseCase(jobs domain.SyncJobRepository, newsUse *NewsUseCase) *SyncJobsUseCase {
@@ -24,6 +27,18 @@ func NewSyncJobsUseCase(jobs domain.SyncJobRepository, newsUse *NewsUseCase) *Sy
 }
 
 func (uc *SyncJobsUseCase) Start(ctx context.Context, limit int) (domain.SyncJob, error) {
+	uc.mu.Lock()
+	defer uc.mu.Unlock()
+
+	if uc.activeJobID != "" {
+		activeJob, err := uc.jobs.GetByID(ctx, uc.activeJobID)
+		if err == nil && (activeJob.Status == domain.JobStatusPending || activeJob.Status == domain.JobStatusRunning) {
+			logger.Info("SYNC", "active news sync reused", logger.F("job_id", activeJob.ID))
+			return activeJob, nil
+		}
+		uc.activeJobID = ""
+	}
+
 	now := time.Now().UTC()
 	job := domain.SyncJob{
 		ID:        uuid.NewString(),
@@ -37,6 +52,7 @@ func (uc *SyncJobsUseCase) Start(ctx context.Context, limit int) (domain.SyncJob
 	if err := uc.jobs.Save(ctx, job); err != nil {
 		return domain.SyncJob{}, fmt.Errorf("save sync job: %w", err)
 	}
+	uc.activeJobID = job.ID
 
 	logger.Info("SYNC", "news sync queued",
 		logger.F("job_id", job.ID),
@@ -52,6 +68,14 @@ func (uc *SyncJobsUseCase) Get(ctx context.Context, id string) (domain.SyncJob, 
 }
 
 func (uc *SyncJobsUseCase) run(job domain.SyncJob) {
+	defer func() {
+		uc.mu.Lock()
+		if uc.activeJobID == job.ID {
+			uc.activeJobID = ""
+		}
+		uc.mu.Unlock()
+	}()
+
 	ctx := context.Background()
 	startedAt := time.Now()
 	job.Status = domain.JobStatusRunning

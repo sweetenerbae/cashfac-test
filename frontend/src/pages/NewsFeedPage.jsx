@@ -32,7 +32,7 @@ export function NewsFeedPage({
               type="button"
               className="action-button"
               onClick={() => void syncNews()}
-              disabled={isSyncing}
+              disabled={isSyncing || isLoading}
             >
               {isSyncing ? "Загружаю..." : "Загрузить свежие новости"}
             </button>
