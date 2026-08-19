@@ -6,10 +6,18 @@
 
 Понадобится только запущенный Docker Desktop.
 
+Команды одинаковы для macOS, Linux и Windows PowerShell. На Windows должен быть установлен GNU Make.
+
 ```bash
 git clone https://github.com/sweetenerbae/cashfac-test.git
 cd cashfac-test
 make setup
+```
+
+Если `make` на Windows недоступен, файл окружения можно создать напрямую:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
 Команда `make setup` создаст `.env` из безопасного шаблона и не перезапишет существующий файл. Добавьте в `.env` два ключа:

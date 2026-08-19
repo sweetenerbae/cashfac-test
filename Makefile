@@ -6,20 +6,21 @@ FRONTEND_DIR := ./frontend
 .PHONY: help setup run dev build test check fmt clean swagger caddy-run caddy-validate frontend-install frontend-dev frontend-build docker-check docker-up docker-down docker-build docker-logs docker-status
 
 help:
-	@printf '%s\n' \
-		'Cash Factories News' \
-		'' \
-		'  make setup             Create .env from .env.example' \
-		'  make docker-up         Build and start the complete application' \
-		'  make docker-logs       Follow application logs' \
-		'  make docker-status     Show container status' \
-		'  make docker-down       Stop containers' \
-		'' \
-		'  make run               Run backend locally' \
-		'  make frontend-install  Install frontend dependencies' \
-		'  make frontend-dev      Run frontend locally' \
-		'  make check             Run backend tests and build frontend'
+	@echo Cash Factories News
+	@echo   make setup             Create .env from .env.example
+	@echo   make docker-up         Build and start the complete application
+	@echo   make docker-logs       Follow application logs
+	@echo   make docker-status     Show container status
+	@echo   make docker-down       Stop containers
+	@echo   make run               Run backend locally
+	@echo   make frontend-install  Install frontend dependencies
+	@echo   make frontend-dev      Run frontend locally
+	@echo   make check             Run backend tests and build frontend
 
+ifeq ($(OS),Windows_NT)
+setup:
+	@if exist .env (echo .env already exists; keeping it unchanged) else (copy /Y .env.example .env >NUL && echo Created .env. Add GUARDIAN_API_KEY and ZAI_API_KEY before starting the app.)
+else
 setup:
 	@if [ -f .env ]; then \
 		echo '.env already exists; keeping it unchanged'; \
@@ -27,6 +28,7 @@ setup:
 		cp .env.example .env; \
 		echo 'Created .env. Add GUARDIAN_API_KEY and ZAI_API_KEY before starting the app.'; \
 	fi
+endif
 
 run:
 	@$(MAKE) -C $(BACKEND_DIR) run
@@ -66,22 +68,24 @@ frontend-dev:
 frontend-build:
 	@cd $(FRONTEND_DIR) && npm run build
 
+ifeq ($(OS),Windows_NT)
+docker-check:
+	@docker info >NUL 2>&1 || (echo Docker is not running. Start Docker Desktop and try again. & exit /b 1)
+else
 docker-check:
 	@docker info >/dev/null 2>&1 || (echo 'Docker is not running. Start Docker Desktop and try again.'; exit 1)
+endif
 
 docker-build: docker-check
 	@docker compose build
 
 docker-up: docker-check
 	@docker compose up --build -d
-	@printf '%s\n' \
-		'' \
-		'Application started:' \
-		'  Website: http://localhost:8080' \
-		'  Swagger: http://localhost:8080/docs' \
-		'  Health:  http://localhost:8080/health' \
-		'' \
-		'Logs: make docker-logs'
+	@echo Application started:
+	@echo   Website: http://localhost:8080
+	@echo   Swagger: http://localhost:8080/docs
+	@echo   Health:  http://localhost:8080/health
+	@echo Logs: make docker-logs
 
 docker-down:
 	@docker compose down
