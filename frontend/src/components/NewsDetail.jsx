@@ -37,13 +37,13 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, rewr
 
   return (
     <article className="detail detail--article">
+      <NewsImage
+        className="detail__media"
+        imageURL={selectedNews.ImageURL}
+        loading="eager"
+        title={selectedNews.Title}
+      />
       <div className="detail__summary">
-        <NewsImage
-          className="detail__media"
-          imageURL={selectedNews.ImageURL}
-          loading="eager"
-          title={selectedNews.Title}
-        />
         <div className="detail__summary-meta">
           <span className="detail__badge">Оригинальный материал</span>
           <span className="detail__divider" aria-hidden="true">

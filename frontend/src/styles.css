@@ -458,7 +458,7 @@ a {
 
 .detail__media {
   width: 100%;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 18 / 5;
   margin-bottom: 28px;
   border-radius: 24px;
 }
@@ -707,8 +707,7 @@ a {
 
 .skeleton--detail-media {
   width: 100%;
-  max-width: 1100px;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 18 / 5;
   margin-bottom: 28px;
   border-radius: 24px;
 }
@@ -862,7 +861,7 @@ a {
 
   .detail__media,
   .skeleton--detail-media {
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9;
     border-radius: 18px;
   }
 

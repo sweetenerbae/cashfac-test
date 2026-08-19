@@ -1,18 +1,21 @@
 package main
 
 import (
-	"log"
+	"os"
 
 	"cashfac-test/internal/app"
+	"cashfac-test/internal/platform/logger"
 )
 
 func main() {
 	application, err := app.New()
 	if err != nil {
-		log.Fatalf("build app: %v", err)
+		logger.Error("BOOT", "failed to build application", logger.F("error", err))
+		os.Exit(1)
 	}
 
 	if err := application.Run(); err != nil {
-		log.Fatalf("run app: %v", err)
+		logger.Error("BOOT", "server stopped", logger.F("error", err))
+		os.Exit(1)
 	}
 }

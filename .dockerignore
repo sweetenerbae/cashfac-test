@@ -1,6 +1,9 @@
 .git
 .gitignore
 .idea
+.env
 frontend/node_modules
 frontend/dist
 backend/bin
+backend/data
+backend/backend

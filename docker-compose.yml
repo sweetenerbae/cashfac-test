@@ -6,16 +6,33 @@ services:
     environment:
       HTTP_PORT: 8080
       GUARDIAN_API_KEY: ${GUARDIAN_API_KEY}
+      ZAI_API_KEY: ${ZAI_API_KEY}
+      ZAI_BASE_URL: ${ZAI_BASE_URL:-https://api.z.ai/api/paas/v4/chat/completions}
+      ZAI_MODEL: ${ZAI_MODEL:-glm-5.2}
+      SQLITE_PATH: /data/news.db
+      LOG_COLOR: always
     expose:
       - "8080"
+    volumes:
+      - news_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   caddy:
-    image: caddy:2.8-alpine
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "8080:80"
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
+
+volumes:
+  news_data:

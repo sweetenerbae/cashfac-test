@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cashfac-test/internal/domain"
+	"cashfac-test/internal/platform/logger"
 )
 
 type NewsUseCase struct {
@@ -47,10 +48,17 @@ func (uc *NewsUseCase) SyncWithProgress(ctx context.Context, limit int, progress
 }
 
 func (uc *NewsUseCase) sync(ctx context.Context, limit int, progressFn SyncProgressFunc) (int, error) {
+	startedAt := time.Now()
+	logger.Info("SOURCE", "fetching latest news", logger.F("limit", limit))
 	items, err := uc.source.FetchLatest(ctx, limit)
 	if err != nil {
+		logger.Error("SOURCE", "failed to fetch latest news", logger.F("duration", logger.Duration(time.Since(startedAt))), logger.F("error", err))
 		return 0, fmt.Errorf("fetch latest news: %w", err)
 	}
+	logger.Success("SOURCE", "latest news received",
+		logger.F("items", len(items)),
+		logger.F("duration", logger.Duration(time.Since(startedAt))),
+	)
 
 	now := time.Now().UTC()
 	savedCount := 0
@@ -143,6 +151,7 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 		uc.rewriteMu.Unlock()
 		select {
 		case <-ctx.Done():
+			logger.Warn("LLM", "rewrite wait cancelled", logger.F("article", logArticleID(externalID)), logger.F("mood", mood))
 			return domain.RewriteResult{}, ctx.Err()
 		case <-call.done:
 			result := call.result
@@ -150,6 +159,7 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 			result.Meta.LLMRequests = 0
 			result.Meta.SavedLLMRequests = 1
 			result.Meta.DurationMs = time.Since(startedAt).Milliseconds()
+			logRewriteResult(externalID, mood, result, call.err)
 			return result, call.err
 		}
 	}
@@ -166,7 +176,35 @@ func (uc *NewsUseCase) RewriteByExternalID(ctx context.Context, externalID strin
 	delete(uc.rewriteCalls, key)
 	uc.rewriteMu.Unlock()
 
+	logRewriteResult(externalID, mood, call.result, call.err)
 	return call.result, call.err
+}
+
+func logRewriteResult(externalID string, mood domain.Mood, result domain.RewriteResult, err error) {
+	fields := []logger.Field{
+		logger.F("article", logArticleID(externalID)),
+		logger.F("mood", mood),
+		logger.F("source", result.Meta.Source),
+		logger.F("llm_requests", result.Meta.LLMRequests),
+		logger.F("saved_requests", result.Meta.SavedLLMRequests),
+		logger.F("duration", logger.Duration(time.Duration(result.Meta.DurationMs)*time.Millisecond)),
+	}
+	if err != nil {
+		logger.Error("LLM", "rewrite failed", append(fields, logger.F("error", err))...)
+		return
+	}
+
+	message := "rewrite generated"
+	if result.Meta.Source == domain.RewriteSourceCache {
+		message = "rewrite served from cache"
+	} else if result.Meta.Source == domain.RewriteSourceShared {
+		message = "in-flight rewrite reused"
+	}
+	logger.Success("LLM", message, fields...)
+}
+
+func logArticleID(externalID string) string {
+	return checksum(externalID)[:10]
 }
 
 func (uc *NewsUseCase) rewriteByExternalID(ctx context.Context, externalID string, mood domain.Mood) (domain.RewriteResult, error) {
