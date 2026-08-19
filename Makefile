@@ -19,7 +19,7 @@ help:
 
 ifeq ($(OS),Windows_NT)
 setup:
-	@if exist .env (echo .env already exists; keeping it unchanged) else (copy /Y .env.example .env >NUL && echo Created .env. Add GUARDIAN_API_KEY and ZAI_API_KEY before starting the app.)
+	@powershell.exe -NoProfile -NonInteractive -Command "if (Test-Path '.env') { Write-Output '.env already exists; keeping it unchanged' } else { Copy-Item '.env.example' '.env'; Write-Output 'Created .env. Add GUARDIAN_API_KEY and ZAI_API_KEY before starting the app.' }"
 else
 setup:
 	@if [ -f .env ]; then \
@@ -70,7 +70,7 @@ frontend-build:
 
 ifeq ($(OS),Windows_NT)
 docker-check:
-	@docker info >NUL 2>&1 || (echo Docker is not running. Start Docker Desktop and try again. & exit /b 1)
+	@powershell.exe -NoProfile -NonInteractive -Command "docker info 2>&1 | Out-Null; if ($$LASTEXITCODE -ne 0) { Write-Error 'Docker is not running. Start Docker Desktop and try again.'; exit 1 }"
 else
 docker-check:
 	@docker info >/dev/null 2>&1 || (echo 'Docker is not running. Start Docker Desktop and try again.'; exit 1)
