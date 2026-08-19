@@ -2,6 +2,41 @@
 
 Сервис собирает реальные новости The Guardian и позволяет читать один материал в разных интонациях: нейтральной, радостной, грустной и ироничной. Исходная публикация, авторские факты и ссылка на источник остаются доступны на странице новости.
 
+## Интерфейс
+
+<p align="center">
+  <a href="./screenshots/news-feed.png">
+    <img src="./screenshots/news-feed.png" alt="Лента реальных новостей The Guardian" width="100%">
+  </a>
+</p>
+
+<p align="center"><sub><b>Лента новостей.</b> Актуальные публикации с изображениями и переходом к полному материалу.</sub></p>
+
+<table>
+  <tr>
+    <td width="33%">
+      <a href="./screenshots/article-page.png">
+        <img src="./screenshots/article-page.png" alt="Страница новости и выбор интонации">
+      </a>
+    </td>
+    <td width="33%">
+      <a href="./screenshots/article-original.png">
+        <img src="./screenshots/article-original.png" alt="Оригинальный текст новости">
+      </a>
+    </td>
+    <td width="33%">
+      <a href="./screenshots/article-happy.png">
+        <img src="./screenshots/article-happy.png" alt="Новость в радостной интонации">
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Страница новости</b><br>Источник и выбор интонации</sub></td>
+    <td align="center"><sub><b>Оригинал</b><br>Исходный текст публикации</sub></td>
+    <td align="center"><sub><b>Новая подача</b><br>Текст в выбранной интонации</sub></td>
+  </tr>
+</table>
+
 ## Быстрый запуск без Make
 
 Для основного варианта запуска нужны Git и запущенный Docker Desktop. GNU Make устанавливать не обязательно.

@@ -1,4 +1,4 @@
-import { defaultMood, getMoodLabel } from "../constants/moods";
+import { getMoodLabel } from "../constants/moods";
 import { formatDate } from "../utils/news";
 import { NewsImage } from "./NewsImage";
 import { RewriteMetrics } from "./RewriteMetrics";
@@ -35,7 +35,7 @@ export function NewsDetail({ activeMood, isLoading, rewriteFallbackMessage, rewr
     );
   }
 
-  const currentTitle = showOriginal ? "Оригинал" : activeMood === defaultMood ? "Нейтральная версия" : "Рерайт";
+  const currentTitle = showOriginal ? "Оригинал" : getMoodLabel(activeMood);
   const currentEyebrow = showOriginal ? "Исходный текст" : "Текущая подача";
   const currentText = showOriginal ? selectedNews.OriginalText : selectedNews.RewrittenText;
 

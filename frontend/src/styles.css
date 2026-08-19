@@ -85,8 +85,8 @@ a {
 }
 
 .hero h1 {
-  max-width: 10ch;
-  font-size: clamp(3.7rem, 8vw, 7rem);
+  max-width: none;
+  font-size: clamp(1rem, 6vw, 7rem);
 }
 
 .article-intro h1 {
